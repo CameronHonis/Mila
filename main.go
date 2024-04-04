@@ -5,7 +5,7 @@ import (
 	"github.com/CameronHonis/chess"
 )
 
-var Position *chess.Board
+var Position = chess.GetInitBoard()
 var Options *SearchOptions
 
 func main() {

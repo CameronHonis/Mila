@@ -20,6 +20,19 @@ type SearchOptions struct {
 	MaxMs       int
 }
 
+func (opts *SearchOptions) MaxSearchMs() int {
+	var maxSearchMs = 100_000_000_000
+	if Options.MaxMs > 0 {
+		maxSearchMs = MinInt(maxSearchMs, Options.MaxMs)
+	}
+	if Position.IsWhiteTurn && Options.WhiteMs > 0 {
+		maxSearchMs = MinInt(maxSearchMs, msForSearch(Position, Options.WhiteMs, Options.WhiteIncrMs))
+	} else if !Position.IsWhiteTurn && Options.BlackMs > 0 {
+		maxSearchMs = MinInt(maxSearchMs, msForSearch(Position, Options.BlackMs, Options.BlackIncrMs))
+	}
+	return maxSearchMs
+}
+
 func loopStdin(handler func(string)) {
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
