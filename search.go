@@ -7,7 +7,8 @@ import (
 	"time"
 )
 
-const ALPHA_BETA_PRUNING_ENABLED = false
+const ALPHA_BETA_PRUNING_ENABLED = true
+const MOVE_SORT_ENABLED = true
 
 var searchHalt = false
 
@@ -49,6 +50,9 @@ func searchToDepth(pos *chess.Board, depth int, alpha float64, beta float64) (be
 	moves, err := chess.GetLegalMoves(pos)
 	if err != nil || len(moves) == 0 {
 		panic(fmt.Sprintf("could not get legal moves from pos %s: %s", pos, err))
+	}
+	if MOVE_SORT_ENABLED {
+		moves = SortMoves(pos, moves)
 	}
 	var bestScore float64
 	for _, move := range moves {
