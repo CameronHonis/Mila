@@ -20,6 +20,7 @@ func StartSearch() {
 	}()
 	var depth int
 	var bestMove *chess.Move
+	var nodeCount int
 	for {
 		depth++
 
@@ -33,8 +34,8 @@ func StartSearch() {
 		}
 
 		var score float64
-		bestMove, score, _ = searchToDepth(Position, depth, -math.MaxFloat64, math.MaxFloat64)
-		fmt.Printf("info depth %d score %f move %s\n", depth, score, bestMove.ToLongAlgebraic())
+		bestMove, score, nodeCount = searchToDepth(Position, depth, -math.MaxFloat64, math.MaxFloat64)
+		fmt.Printf("info depth %d score %f move %s nodes %d\n", depth, score, bestMove.ToLongAlgebraic(), nodeCount)
 	}
 	fmt.Printf("bestmove %s\n", bestMove.ToLongAlgebraic())
 
@@ -42,7 +43,7 @@ func StartSearch() {
 
 func searchToDepth(pos *chess.Board, depth int, alpha float64, beta float64) (bestMove *chess.Move, score float64, nodeCount int) {
 	if depth == 0 || pos.Result != chess.BOARD_RESULT_IN_PROGRESS {
-		return nil, Eval(pos), 1
+		return nil, EvalPos(pos), 1
 	}
 
 	moves, err := chess.GetLegalMoves(pos)
@@ -61,30 +62,22 @@ func searchToDepth(pos *chess.Board, depth int, alpha float64, beta float64) (be
 			searchHalt = true
 		}
 		if pos.IsWhiteTurn {
-			if ALPHA_BETA_PRUNING_ENABLED {
-				if subScore > beta {
-					bestMove = move
-					bestScore = subScore
-					break
-				}
-			}
 			if subScore > alpha {
 				alpha = subScore
 				bestScore = subScore
 				bestMove = move
-			}
-		} else { // black turn
-			if ALPHA_BETA_PRUNING_ENABLED {
-				if subScore < alpha {
-					bestMove = move
-					bestScore = subScore
+				if ALPHA_BETA_PRUNING_ENABLED && subScore > beta {
 					break
 				}
 			}
+		} else { // black turn
 			if subScore < beta {
 				beta = subScore
 				bestScore = subScore
 				bestMove = move
+				if ALPHA_BETA_PRUNING_ENABLED && subScore < alpha {
+					break
+				}
 			}
 		}
 	}

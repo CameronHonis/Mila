@@ -35,3 +35,9 @@ func MinInt(int1, int2 int) int {
 	}
 	return int2
 }
+
+func Swap[T interface{}](slice []T, i, j int) {
+	temp := slice[i]
+	slice[i] = slice[j]
+	slice[j] = temp
+}
