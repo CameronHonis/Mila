@@ -9,42 +9,28 @@ import (
 	"strings"
 )
 
-type SearchOptions struct {
-	Moves       []*chess.Move
-	WhiteMs     int
-	BlackMs     int
-	WhiteIncrMs int
-	BlackIncrMs int
-	MaxDepth    int
-	MaxNodes    int
-	MaxMs       int
+type Uci struct {
+	pos *chess.Board
 }
 
-func (opts *SearchOptions) MaxSearchMs() int {
-	var maxSearchMs = 100_000_000_000
-	if Options.MaxMs > 0 {
-		maxSearchMs = MinInt(maxSearchMs, Options.MaxMs)
+func NewUci() *Uci {
+	return &Uci{
+		pos: chess.GetInitBoard(),
 	}
-	if Position.IsWhiteTurn && Options.WhiteMs > 0 {
-		maxSearchMs = MinInt(maxSearchMs, msForSearch(Position, Options.WhiteMs, Options.WhiteIncrMs))
-	} else if !Position.IsWhiteTurn && Options.BlackMs > 0 {
-		maxSearchMs = MinInt(maxSearchMs, msForSearch(Position, Options.BlackMs, Options.BlackIncrMs))
-	}
-	return maxSearchMs
 }
 
-func loopStdin(handler func(string)) {
+func (uci *Uci) Start() {
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
 		line := scanner.Text()
-		handler(line)
+		uci.handleInput(line)
 	}
 	if err := scanner.Err(); err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, "reading stdin: ", err)
 	}
 }
 
-func handleInput(s string) {
+func (uci *Uci) handleInput(s string) {
 	toks := strings.Split(s, " ")
 	cmd := toks[0]
 	if cmd == "uci" {
@@ -55,16 +41,15 @@ func handleInput(s string) {
 			fmt.Println(err)
 		} else if pos != nil {
 			fmt.Println("set position to", pos.ToFEN())
-			Position = pos
+			uci.pos = pos
 		}
 	} else if cmd == "go" {
-		opts, err := handleGoCmd(toks, Position)
+		constraints, err := handleGoCmd(toks, uci.pos)
 		if err != nil {
 			fmt.Println(err)
-		} else if opts != nil {
+		} else if constraints != nil {
 			fmt.Println("starting search")
-			Options = opts
-			StartSearch()
+			NewSearch(uci.pos, constraints).Start()
 		}
 	} else {
 		fmt.Println("unknown command:", cmd)
@@ -128,12 +113,12 @@ func printPositionCmdHelp() {
 	fmt.Println("   https://www.chessprogramming.org/Algebraic_Chess_Notation#LAN")
 }
 
-func handleGoCmd(toks []string, pos *chess.Board) (*SearchOptions, error) {
+func handleGoCmd(toks []string, pos *chess.Board) (*SearchConstraints, error) {
 	if len(toks) == 2 && (toks[1] == "--help" || toks[1] == "help") {
 		printGoCmdHelp()
 	}
 
-	opts := &SearchOptions{}
+	opts := &SearchConstraints{}
 
 	var tokIdx = 1
 	for tokIdx < len(toks) {
@@ -146,10 +131,10 @@ func handleGoCmd(toks []string, pos *chess.Board) (*SearchOptions, error) {
 				if moveErr != nil {
 					return nil, fmt.Errorf("could not parse move %s: %s", moveStr, moveErr)
 				}
-				if opts.Moves == nil {
-					opts.Moves = make([]*chess.Move, 0)
+				if opts.moves == nil {
+					opts.moves = make([]*chess.Move, 0)
 				}
-				opts.Moves = append(opts.Moves, move)
+				opts.moves = append(opts.moves, move)
 			}
 			tokIdx += moveIdx + 1
 		} else if currTok == "wtime" {
@@ -161,7 +146,7 @@ func handleGoCmd(toks []string, pos *chess.Board) (*SearchOptions, error) {
 			if parseErr != nil {
 				return nil, fmt.Errorf("could not parse %s as wtime: %s", wtimeStr, parseErr)
 			}
-			opts.WhiteMs = wtime
+			opts.whiteMs = wtime
 			tokIdx += 2
 		} else if currTok == "btime" {
 			if tokIdx+1 >= len(toks) {
@@ -172,7 +157,7 @@ func handleGoCmd(toks []string, pos *chess.Board) (*SearchOptions, error) {
 			if parseErr != nil {
 				return nil, fmt.Errorf("could not parse %s as btime: %s", btimeStr, parseErr)
 			}
-			opts.BlackMs = btime
+			opts.blackMs = btime
 			tokIdx += 2
 		} else if currTok == "winc" {
 			if tokIdx+1 >= len(toks) {
@@ -183,7 +168,7 @@ func handleGoCmd(toks []string, pos *chess.Board) (*SearchOptions, error) {
 			if parseErr != nil {
 				return nil, fmt.Errorf("could not parse %s as winc: %s", wincStr, parseErr)
 			}
-			opts.WhiteIncrMs = winc
+			opts.whiteIncrMs = winc
 			tokIdx += 2
 		} else if currTok == "binc" {
 			if tokIdx+1 >= len(toks) {
@@ -194,7 +179,7 @@ func handleGoCmd(toks []string, pos *chess.Board) (*SearchOptions, error) {
 			if parseErr != nil {
 				return nil, fmt.Errorf("could not parse %s as winc: %s", bincStr, parseErr)
 			}
-			opts.BlackIncrMs = binc
+			opts.blackIncrMs = binc
 			tokIdx += 2
 		} else if currTok == "depth" {
 			if tokIdx+1 >= len(toks) {
@@ -205,7 +190,7 @@ func handleGoCmd(toks []string, pos *chess.Board) (*SearchOptions, error) {
 			if parseErr != nil {
 				return nil, fmt.Errorf("could not parse %s as depth: %s", depthStr, parseErr)
 			}
-			opts.MaxDepth = depth
+			opts.maxDepth = depth
 			tokIdx += 2
 		} else if currTok == "nodes" {
 			if tokIdx+1 >= len(toks) {
@@ -216,7 +201,7 @@ func handleGoCmd(toks []string, pos *chess.Board) (*SearchOptions, error) {
 			if parseErr != nil {
 				return nil, fmt.Errorf("could not parse %s as nodes: %s", nodesStr, parseErr)
 			}
-			opts.MaxNodes = nodes
+			opts.maxNodes = nodes
 			tokIdx += 2
 		} else if currTok == "movetime" {
 			if tokIdx+1 >= len(toks) {
@@ -227,7 +212,7 @@ func handleGoCmd(toks []string, pos *chess.Board) (*SearchOptions, error) {
 			if parseErr != nil {
 				return nil, fmt.Errorf("could not parse %s as movetime: %s", movetimeStr, parseErr)
 			}
-			opts.MaxMs = movetime
+			opts.maxMs = movetime
 			tokIdx += 2
 		} else {
 			return nil, fmt.Errorf("unknown argument: %s", currTok)
