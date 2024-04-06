@@ -11,11 +11,13 @@ import (
 
 type Uci struct {
 	pos *chess.Board
+	tt  *TranspTable
 }
 
-func NewUci() *Uci {
+func NewUci(tt *TranspTable) *Uci {
 	return &Uci{
 		pos: chess.GetInitBoard(),
+		tt:  tt,
 	}
 }
 
@@ -49,7 +51,7 @@ func (uci *Uci) handleInput(s string) {
 			fmt.Println(err)
 		} else if constraints != nil {
 			fmt.Println("starting search")
-			NewSearch(uci.pos, constraints).Start()
+			NewSearch(uci.pos, constraints, uci.tt).Start()
 		}
 	} else {
 		fmt.Println("unknown command:", cmd)

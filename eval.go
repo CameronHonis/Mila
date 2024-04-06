@@ -59,11 +59,19 @@ func PieceValue(piece chess.Piece) int {
 	}
 }
 
-func SortMoves(pos *chess.Board, moves []*chess.Move) []*chess.Move {
+func SortMoves(pos *chess.Board, moves []*chess.Move, anticipated *chess.Move) []*chess.Move {
 	// quicksort impl
 	if len(moves) == 1 {
 		return moves
 	} else if len(moves) == 2 {
+		if anticipated != nil {
+			if anticipated.Equal(moves[0]) {
+				return moves
+			} else if anticipated.Equal(moves[1]) {
+				Swap(moves, 0, 1)
+				return moves
+			}
+		}
 		if !compareMoves(pos, moves[0], moves[1]) {
 			Swap(moves, 0, 1)
 		}
@@ -71,8 +79,8 @@ func SortMoves(pos *chess.Board, moves []*chess.Move) []*chess.Move {
 	}
 
 	mid := len(moves) / 2
-	left := SortMoves(pos, moves[0:mid])
-	right := SortMoves(pos, moves[mid:])
+	left := SortMoves(pos, moves[0:mid], anticipated)
+	right := SortMoves(pos, moves[mid:], anticipated)
 	var leftIdx = 0
 	var rightIdx = 0
 	var rtnIdx = 0
@@ -80,7 +88,13 @@ func SortMoves(pos *chess.Board, moves []*chess.Move) []*chess.Move {
 	for leftIdx < len(left) && rightIdx < len(right) {
 		leftMove := left[leftIdx]
 		rightMove := right[rightIdx]
-		if compareMoves(pos, leftMove, rightMove) {
+		if anticipated != nil && anticipated.Equal(leftMove) {
+			rtn[rtnIdx] = leftMove
+			leftIdx++
+		} else if anticipated != nil && anticipated.Equal(rightMove) {
+			rtn[rtnIdx] = rightMove
+			rightIdx++
+		} else if compareMoves(pos, leftMove, rightMove) {
 			rtn[rtnIdx] = leftMove
 			leftIdx++
 		} else {

@@ -9,6 +9,7 @@ import (
 
 const ALPHA_BETA_PRUNING_ENABLED = true
 const MOVE_SORT_ENABLED = true
+const TRANSP_TABLE_LOOKUPS_ENABLED = true
 
 type SearchResults struct {
 	BestMove *chess.Move
@@ -17,6 +18,7 @@ type SearchResults struct {
 
 type Search struct {
 	Root        *chess.Board
+	TT          *TranspTable
 	Constraints *SearchConstraints
 	Depth       int
 
@@ -26,9 +28,10 @@ type Search struct {
 	score    float64
 }
 
-func NewSearch(pos *chess.Board, constraints *SearchConstraints) *Search {
+func NewSearch(pos *chess.Board, constraints *SearchConstraints, tt *TranspTable) *Search {
 	return &Search{
 		Root:        pos,
+		TT:          tt,
 		Constraints: constraints,
 		isHalted:    true,
 		line:        make([]*chess.Move, 0),
@@ -78,6 +81,7 @@ func (s *Search) Start() {
 		s.Halt()
 	}()
 	var bestMove *chess.Move
+	var lastResultTime = time.Now()
 	for {
 		s.IncrDepth()
 
@@ -87,7 +91,9 @@ func (s *Search) Start() {
 
 		results := s.searchToDepth(s.Root, s.Depth, -math.MaxFloat64, math.MaxFloat64)
 		bestMove = results.BestMove
-		fmt.Printf("info depth %d score %f move %s nodes %d\n", s.Depth, results.Score, bestMove.ToLongAlgebraic(), s.NodeCnt())
+		dt := time.Now().Sub(lastResultTime)
+		lastResultTime = time.Now()
+		fmt.Printf("info depth %d score %f move %s nodes %d time %dms\n", s.Depth, results.Score, bestMove.ToLongAlgebraic(), s.NodeCnt(), dt.Milliseconds())
 	}
 	if bestMove != nil {
 		fmt.Printf("bestmove %s\n", bestMove.ToLongAlgebraic())
@@ -101,12 +107,27 @@ func (s *Search) searchToDepth(pos *chess.Board, depth int, alpha float64, beta 
 		return &SearchResults{BestMove: nil, Score: EvalPos(pos)}
 	}
 
+	posHash := ZobristHash(pos)
+	var anticipatedMove *chess.Move
+	if TRANSP_TABLE_LOOKUPS_ENABLED {
+		if ttEntry, _ := s.TT.GetEntry(posHash); ttEntry != nil {
+			if ttEntry.Depth >= depth {
+				return &SearchResults{
+					BestMove: ttEntry.Move,
+					Score:    ttEntry.Score,
+				}
+			} else {
+				anticipatedMove = ttEntry.Move
+			}
+		}
+	}
+
 	moves, err := chess.GetLegalMoves(pos)
 	if err != nil || len(moves) == 0 {
 		panic(fmt.Sprintf("could not get legal moves from pos %s: %s", pos, err))
 	}
 	if MOVE_SORT_ENABLED {
-		moves = SortMoves(pos, moves)
+		moves = SortMoves(pos, moves, anticipatedMove)
 	}
 	var bestScore float64
 	var bestMove *chess.Move
@@ -123,7 +144,7 @@ func (s *Search) searchToDepth(pos *chess.Board, depth int, alpha float64, beta 
 				bestScore = branchScore
 				bestMove = move
 				if ALPHA_BETA_PRUNING_ENABLED && branchScore > beta {
-					// black would not get in this line
+					// black would not allow `pos`
 					break
 				}
 			}
@@ -133,14 +154,16 @@ func (s *Search) searchToDepth(pos *chess.Board, depth int, alpha float64, beta 
 				bestScore = branchScore
 				bestMove = move
 				if ALPHA_BETA_PRUNING_ENABLED && branchScore < alpha {
-					// white would not get in this line
+					// white would not allow `pos`
 					break
 				}
 			}
 		}
 	}
+	results := &SearchResults{bestMove, bestScore}
+	s.TT.PostResults(posHash, results, depth)
 
-	return &SearchResults{bestMove, bestScore}
+	return results
 }
 
 func (s *Search) MaxSearchMs() int {

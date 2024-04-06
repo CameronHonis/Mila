@@ -22,6 +22,10 @@ func PadToWidth(width int, s string) string {
 	return s + strings.Repeat(" ", paddingNeeded)
 }
 
+func Yellow(s string) string {
+	return fmt.Sprintf("\033[33m%s\033[0m", s)
+}
+
 func MaxInt(int1, int2 int) int {
 	if int1 > int2 {
 		return int1
