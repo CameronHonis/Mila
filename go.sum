@@ -1,2 +1,4 @@
 github.com/CameronHonis/chess v0.0.1 h1:FoukpkcW8IZ0BFL34A0Ww7cl/TPD5rNwV1pnruteZgw=
 github.com/CameronHonis/chess v0.0.1/go.mod h1:oKn3W5vNVxt0S0K8+jxM7NHO2UhUfmpifIr8eeCt7k4=
+github.com/CameronHonis/set v0.0.0-20240327183655-b2c8269cd035 h1:uB4aJfkTeJJifQYlYYmNBAhhycFCrS7Z3BgE9rDGMgU=
+github.com/CameronHonis/set v0.0.0-20240327183655-b2c8269cd035/go.mod h1:81HLIEA3rZU/D1im6xsvEBSMQFHuXdlK66fLLM13MVg=
