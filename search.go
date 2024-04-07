@@ -4,14 +4,16 @@ import (
 	"fmt"
 	"github.com/CameronHonis/chess"
 	"math"
+	"sync"
 	"time"
 )
 
 const ALPHA_BETA_PRUNING_ENABLED = true
 const MOVE_SORT_ENABLED = true
 const TRANSP_TABLE_LOOKUPS_ENABLED = true
+const MULTITHREADING_ENABLED = true
 
-type SearchResults struct {
+type SearchResult struct {
 	BestMove *chess.Move
 	Score    float64
 }
@@ -26,6 +28,7 @@ type Search struct {
 	nodeCnt  int
 	line     []*chess.Move
 	score    float64
+	mu       sync.Mutex
 }
 
 func NewSearch(pos *chess.Board, constraints *SearchConstraints, tt *TranspTable) *Search {
@@ -38,13 +41,9 @@ func NewSearch(pos *chess.Board, constraints *SearchConstraints, tt *TranspTable
 	}
 }
 
-func (s *Search) UpdateFromResults(depth int, results *SearchResults) {
-	s.Depth = depth
-	s.line = []*chess.Move{results.BestMove}
-	s.score = results.Score
-}
-
 func (s *Search) IncrNode() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.nodeCnt++
 	if s.nodeCnt >= s.Constraints.NodeCntLmt() {
 		fmt.Println("halting search, max node count reached")
@@ -53,6 +52,8 @@ func (s *Search) IncrNode() {
 }
 
 func (s *Search) IncrDepth() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.Depth++
 	if s.Depth > s.Constraints.DepthLmt() {
 		fmt.Println("halting search, max depth reached")
@@ -61,14 +62,20 @@ func (s *Search) IncrDepth() {
 }
 
 func (s *Search) Halt() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.isHalted = true
 }
 
 func (s *Search) IsHalted() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.isHalted
 }
 
 func (s *Search) NodeCnt() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.nodeCnt
 }
 
@@ -101,10 +108,11 @@ func (s *Search) Start() {
 
 }
 
-func (s *Search) searchToDepth(pos *chess.Board, depth int, alpha float64, beta float64) *SearchResults {
+func (s *Search) searchToDepth(pos *chess.Board, depth int, alpha float64, beta float64) *SearchResult {
 	if depth == 0 || pos.Result != chess.BOARD_RESULT_IN_PROGRESS {
 		s.IncrNode()
-		return &SearchResults{BestMove: nil, Score: EvalPos(pos)}
+		res := &SearchResult{BestMove: nil, Score: EvalPos(pos)}
+		return res
 	}
 
 	posHash := ZobristHash(pos)
@@ -112,7 +120,7 @@ func (s *Search) searchToDepth(pos *chess.Board, depth int, alpha float64, beta 
 	if TRANSP_TABLE_LOOKUPS_ENABLED {
 		if ttEntry, _ := s.TT.GetEntry(posHash); ttEntry != nil {
 			if ttEntry.Depth >= depth {
-				return &SearchResults{
+				return &SearchResult{
 					BestMove: ttEntry.Move,
 					Score:    ttEntry.Score,
 				}
@@ -129,41 +137,115 @@ func (s *Search) searchToDepth(pos *chess.Board, depth int, alpha float64, beta 
 	if MOVE_SORT_ENABLED {
 		moves = SortMoves(pos, moves, anticipatedMove)
 	}
-	var bestScore float64
-	var bestMove *chess.Move
-	for _, move := range moves {
-		if s.IsHalted() {
-			break
-		}
-		newPos := chess.GetBoardFromMove(pos, move)
-		results := s.searchToDepth(newPos, depth-1, alpha, beta)
-		branchScore := results.Score
+
+	var rtn = &SearchResult{}
+	var handleResult = func(res *SearchResult, move *chess.Move) (toPruneSibs bool) {
 		if pos.IsWhiteTurn {
-			if branchScore > alpha {
-				alpha = branchScore
-				bestScore = branchScore
-				bestMove = move
-				if ALPHA_BETA_PRUNING_ENABLED && branchScore > beta {
+			if res.Score > alpha {
+				alpha = res.Score
+				rtn.BestMove = move
+				rtn.Score = res.Score
+				if ALPHA_BETA_PRUNING_ENABLED && res.Score > beta {
 					// black would not allow `pos`
-					break
+					return true
 				}
 			}
 		} else { // black turn
-			if branchScore < beta {
-				beta = branchScore
-				bestScore = branchScore
-				bestMove = move
-				if ALPHA_BETA_PRUNING_ENABLED && branchScore < alpha {
+			if res.Score < beta {
+				beta = res.Score
+				rtn.BestMove = move
+				rtn.Score = res.Score
+				if ALPHA_BETA_PRUNING_ENABLED && res.Score < alpha {
 					// white would not allow `pos`
-					break
+					return true
 				}
 			}
 		}
+		return false
 	}
-	results := &SearchResults{bestMove, bestScore}
+	if MULTITHREADING_ENABLED {
+		type searchResultMove struct {
+			SearchResult *SearchResult
+			Move         *chess.Move
+		}
+		results := make(chan *searchResultMove, len(moves))
+		// Young Brothers Wait (YBW) scout
+		handleResult(s.scoutToDepth(pos, depth), moves[0])
+		for _, move := range moves {
+			newPos := chess.GetBoardFromMove(pos, move)
+			go func() {
+				result := s.searchToDepth(newPos, depth-1, alpha, beta)
+				results <- &searchResultMove{result, move}
+			}()
+		}
+		var resultsCnt = 0
+		for {
+			var toBreak = false
+			select {
+			case res, ok := <-results:
+				if !ok {
+					toBreak = true
+					break
+				}
+				handleResult(res.SearchResult, res.Move)
+				resultsCnt++
+				if resultsCnt == len(moves) {
+					close(results)
+				}
+			}
+			if toBreak {
+				break
+			}
+		}
+	} else { // multithreading not enabled
+		for _, move := range moves {
+			if s.IsHalted() {
+				break
+			}
+			newPos := chess.GetBoardFromMove(pos, move)
+			res := s.searchToDepth(newPos, depth-1, alpha, beta)
+			toPruneSibs := handleResult(res, move)
+			if toPruneSibs {
+				break
+			}
+		}
+	}
+
+	results := rtn
 	s.TT.PostResults(posHash, results, depth)
 
 	return results
+}
+
+func (s *Search) scoutToDepth(pos *chess.Board, depth int) *SearchResult {
+	if depth == 0 || pos.Result != chess.BOARD_RESULT_IN_PROGRESS {
+		score := EvalPos(pos)
+		return &SearchResult{BestMove: nil, Score: score}
+	}
+	posHash := ZobristHash(pos)
+	var anticipatedMove *chess.Move
+	ttEntry, _ := s.TT.GetEntry(posHash)
+	if ttEntry != nil {
+		anticipatedMove = ttEntry.Move
+		if ttEntry.Depth >= depth {
+			return &SearchResult{
+				BestMove: ttEntry.Move,
+				Score:    ttEntry.Score,
+			}
+		}
+	}
+
+	moves, movesErr := chess.GetLegalMoves(pos)
+	if movesErr != nil {
+		panic(fmt.Sprintf("could not get legal moves from pos %s: %s", pos, movesErr))
+	}
+	if MOVE_SORT_ENABLED {
+		moves = SortMoves(pos, moves, anticipatedMove)
+	}
+
+	// TODO: take into account terminal boards here and in the main search
+	newPos := chess.GetBoardFromMove(pos, moves[0])
+	return s.scoutToDepth(newPos, depth-1)
 }
 
 func (s *Search) MaxSearchMs() int {

@@ -16,7 +16,7 @@ func NewTranspTable() *TranspTable {
 	}
 }
 
-func (tt *TranspTable) PostResults(hash int64, results *SearchResults, depth int) {
+func (tt *TranspTable) PostResults(hash int64, results *SearchResult, depth int) {
 	tt.mu.Lock()
 	defer tt.mu.Unlock()
 	prevEntry := tt.entryByHash[hash]
