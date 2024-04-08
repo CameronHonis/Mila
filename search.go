@@ -14,8 +14,9 @@ const TRANSP_TABLE_LOOKUPS_ENABLED = true
 const MULTITHREADING_ENABLED = true
 
 type SearchResult struct {
-	BestMove *chess.Move
-	Score    float64
+	BestMove     *chess.Move
+	Score        float64
+	StoppedEarly bool
 }
 
 type Search struct {
@@ -36,8 +37,6 @@ func NewSearch(pos *chess.Board, constraints *SearchConstraints, tt *TranspTable
 		Root:        pos,
 		TT:          tt,
 		Constraints: constraints,
-		isHalted:    true,
-		line:        make([]*chess.Move, 0),
 	}
 }
 
@@ -100,7 +99,15 @@ func (s *Search) Start() {
 		bestMove = results.BestMove
 		dt := time.Now().Sub(lastResultTime)
 		lastResultTime = time.Now()
-		fmt.Printf("info depth %d score %f move %s nodes %d time %dms\n", s.Depth, results.Score, bestMove.ToLongAlgebraic(), s.NodeCnt(), dt.Milliseconds())
+		var lineStr = ""
+		for moveIdx, move := range s.BestLine() {
+			if moveIdx == 0 {
+				lineStr += move.ToLongAlgebraic()
+			} else {
+				lineStr += " " + move.ToLongAlgebraic()
+			}
+		}
+		fmt.Printf("info depth %d score %f line %s nodes %d time %dms\n", s.Depth, results.Score, lineStr, s.NodeCnt(), dt.Milliseconds())
 	}
 	if bestMove != nil {
 		fmt.Printf("bestmove %s\n", bestMove.ToLongAlgebraic())
@@ -260,4 +267,17 @@ func (s *Search) MaxSearchMs() int {
 		maxSearchMs = MinInt(maxSearchMs, msForSearch(s.Root, s.Constraints.blackMs, s.Constraints.blackIncrMs))
 	}
 	return maxSearchMs
+}
+
+func (s *Search) BestLine() []*chess.Move {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	ttEntry, _ := s.TT.GetEntry(ZobristHash(s.Root))
+	rtn := make([]*chess.Move, 0)
+	for ttEntry != nil && ttEntry.Move != nil {
+		rtn = append(rtn, ttEntry.Move)
+		newPos := chess.GetBoardFromMove(s.Root, ttEntry.Move)
+		ttEntry, _ = s.TT.GetEntry(ZobristHash(newPos))
+	}
+	return rtn
 }
