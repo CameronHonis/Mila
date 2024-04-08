@@ -272,12 +272,19 @@ func (s *Search) MaxSearchMs() int {
 func (s *Search) BestLine() []*chess.Move {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	ttEntry, _ := s.TT.GetEntry(ZobristHash(s.Root))
+	pos := s.Root
+	ttEntry, _ := s.TT.GetEntry(ZobristHash(pos))
 	rtn := make([]*chess.Move, 0)
-	for ttEntry != nil && ttEntry.Move != nil {
+	for {
+		if ttEntry == nil {
+			break
+		}
+		if ttEntry.Move == nil {
+			break
+		}
 		rtn = append(rtn, ttEntry.Move)
-		newPos := chess.GetBoardFromMove(s.Root, ttEntry.Move)
-		ttEntry, _ = s.TT.GetEntry(ZobristHash(newPos))
+		pos = chess.GetBoardFromMove(pos, ttEntry.Move)
+		ttEntry, _ = s.TT.GetEntry(ZobristHash(pos))
 	}
 	return rtn
 }
