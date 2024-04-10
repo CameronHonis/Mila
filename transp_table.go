@@ -16,7 +16,7 @@ func NewTranspTable() *TranspTable {
 	}
 }
 
-func (tt *TranspTable) PostResults(hash int64, results *SearchResult, depth int) {
+func (tt *TranspTable) PostResults(hash int64, results *SearchResult, depth uint8) {
 	tt.mu.Lock()
 	defer tt.mu.Unlock()
 	prevEntry := tt.entryByHash[hash]
@@ -41,13 +41,13 @@ func (tt *TranspTable) GetEntry(hash int64) (entry *TTEntry, exists bool) {
 
 type TTEntry struct {
 	Score float64
-	Depth int
+	Depth uint8
 	Move  *chess.Move
 	// bestMove *chess.Move
 	mu sync.Mutex
 }
 
-func (e *TTEntry) Update(score float64, depth int, move *chess.Move) {
+func (e *TTEntry) Update(score float64, depth uint8, move *chess.Move) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.Score = score

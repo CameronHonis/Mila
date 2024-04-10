@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/CameronHonis/chess"
 	"github.com/CameronHonis/marker"
+	"log"
 	"math"
 	"sync"
 	"time"
@@ -15,30 +16,81 @@ const MOVE_SORT_ENABLED = true
 const TRANSP_TABLE_LOOKUPS_ENABLED = true
 const MULTITHREADING_ENABLED = true
 
-type SearchArgs struct {
-	Pos       *chess.Board
-	Depth     int
-	Ctx       context.Context
-	CancelCtx context.CancelFunc
-}
-
 type SearchResult struct {
 	BestMove *chess.Move
 	Score    float64
 }
 
+type SearchNode struct {
+	__static__  marker.Marker
+	Parent      *SearchNode
+	Pos         *chess.Board
+	Depth       uint8
+	SiblingRank uint8
+
+	__dynamic__ marker.Marker // plan is to track threads "on" or "downstream" this node and only require mutex locks
+	// when two or more threads could potentially mutate the same node. This should be avoided to the highest degree
+	// though with a smart ordering of nodes in the Edge
+	mu           sync.Mutex
+	alpha        float64
+	beta         float64
+	move         *chess.Move
+	cpuCnt       uint8
+	childCnt     uint8
+	childDoneCnt uint8
+	didExpand    bool
+}
+
+func (se *SearchNode) ComesBefore(_other Sortable) bool {
+	other, ok := _other.(*SearchNode)
+	if !ok {
+		log.Fatalf("cannot compare a SearchNode to a %s", _other)
+	}
+	if se.SiblingRank != other.SiblingRank {
+		return se.SiblingRank < other.SiblingRank
+	}
+	if se.Depth != other.Depth {
+		return se.Depth < other.Depth
+	}
+	return ZobristHash(se.Pos) < ZobristHash(other.Pos)
+}
+
+type Edge struct {
+	PriorityQueue[*SearchNode]
+	edge []*SearchNode
+}
+
+func (e *Edge) Push(node *SearchNode) {
+	e.edge = append(e.edge, node)
+}
+
+func (e *Edge) Pop() *SearchNode {
+	if len(e.edge) == 0 {
+		return nil
+	}
+	last := e.edge[len(e.edge)-1]
+	e.edge = e.edge[:len(e.edge)-1]
+	return last
+}
+
+func (e *Edge) Len() uint {
+	return uint(len(e.edge))
+}
+
 type Search struct {
+	__static__  marker.Marker
 	Root        *chess.Board
 	TT          *TranspTable
 	Constraints *SearchConstraints
-	Depth       int
+	Depth       uint8
 	Ctx         context.Context // root context
 	CancelCtx   context.CancelFunc
+	Edge        Edge
 
-	edge    []*StackEle
-	nodeCnt int
-	score   float64
-	mu      sync.Mutex
+	__dynamic__ marker.Marker
+	nodeCnt     int
+	score       float64
+	mu          sync.Mutex
 }
 
 func NewSearch(pos *chess.Board, constraints *SearchConstraints, tt *TranspTable) *Search {
@@ -75,14 +127,6 @@ func (s *Search) NodeCnt() int {
 	return s.nodeCnt
 }
 
-func (s *Search) PushToEdge(ele *StackEle) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.edge = append(s.edge, ele)
-}
-
-func (s *Search)
-
 func (s *Search) Start() {
 	maxSearchMs := s.MaxSearchMs()
 	var bestMove *chess.Move
@@ -96,7 +140,7 @@ func (s *Search) Start() {
 			break
 		}
 
-		results := s.recursiveSearchToDepth(&SearchArgs{s.Root, s.Depth, s.Ctx, s.CancelCtx}, -math.MaxFloat64, math.MaxFloat64)
+		results := s.searchToDepth(s.Root, s.Depth)
 		bestMove = results.BestMove
 		dt := time.Now().Sub(lastResultTime)
 		lastResultTime = time.Now()
@@ -116,53 +160,38 @@ func (s *Search) Start() {
 
 }
 
-type StackEle struct {
-	__static__  marker.Marker
-	Parent      *StackEle
-	Pos         *chess.Board
-	Depth       uint8
-	SiblingRank uint8
-
-	__dynamic__  marker.Marker // plan is to track threads "on" or "downstream" this node and only require mutex locks
-	// when two or more threads could potentially mutate the same node. This should be avoided to the highest degree
-	// though with a smart ordering of nodes in the Edge
-	mu           sync.Mutex
-	alpha        float64
-	beta     float64
-	cpuCnt   uint8
-	ChildCnt uint8
-	childDoneCnt uint8
-	didExpand    bool
-}
-
-func (se *StackEle) ComesBefore(other *StackEle) bool {
-	if se.SiblingRank != other.SiblingRank {
-		return se.SiblingRank < other.SiblingRank
-	}
-	if se.Depth != other.Depth {
-		return se.Depth < other.Depth
-	}
-	if se.ChildCnt != other.ChildCnt {
-		return se.ChildCnt < other.ChildCnt
-	}
-	return ZobristHash(se.Pos) < ZobristHash(other.Pos)
-}
-
 func (s *Search) searchToDepth(pos *chess.Board, depth uint8) *SearchResult {
-	s.PushToEdge(&StackEle{Pos: pos, Depth: depth, SiblingRank: 0, alpha: -math.MaxFloat64, beta: math.MaxFloat64})
-	for len(stack) > 0 {
-		ele := stack[len(stack)-1]
+	s.Edge.Push(&SearchNode{Pos: pos, Depth: depth, SiblingRank: 0, alpha: -math.MaxFloat64, beta: math.MaxFloat64})
+	for s.Edge.Len() > 0 {
+		ele := s.Edge.Pop()
 		s.searchNode(ele)
 	}
 }
 
-func (s *Search) searchNode(ele *StackEle) {
-	posHash := ZobristHash(ele.Pos)
+func (s *Search) searchNode(node *SearchNode) {
+	posHash := ZobristHash(node.Pos)
+
+	var pvMove *chess.Move
 	if entry, _ := s.TT.GetEntry(posHash); entry != nil {
+		if entry.Depth >= node.Depth {
+			propagateSearchResults(node, &SearchResult{BestMove: entry.Move, Score: entry.Score})
+			return
+		} else {
+			pvMove = entry.Move
+		}
+	}
+	if node.Depth == 0 {
 
 	}
-	if ele.Depth == 0 {
+}
 
+func propagateSearchResults(node *SearchNode, results *SearchResult) {
+	if results.Score > node.alpha {
+		node.alpha = results.Score
+		node.move = results.BestMove
+		if results.Score > node.beta {
+
+		}
 	}
 }
 

@@ -23,9 +23,9 @@ func (sc *SearchConstraints) NodeCntLmt() int {
 	return math.MaxInt
 }
 
-func (sc *SearchConstraints) DepthLmt() int {
+func (sc *SearchConstraints) DepthLmt() uint8 {
 	if sc.maxDepth > 0 {
-		return sc.maxDepth
+		return uint8(sc.maxDepth)
 	}
 	return math.MaxInt
 }
