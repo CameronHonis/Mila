@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/CameronHonis/chess"
+	"github.com/CameronHonis/marker"
 	"math"
 	"time"
 )
@@ -11,65 +12,65 @@ const ALPHA_BETA_PRUNING_ENABLED = true
 const MOVE_SORT_ENABLED = true
 const TRANSP_TABLE_LOOKUPS_ENABLED = true
 
-type SearchResults struct {
-	BestMove *chess.Move
-	Score    float64
-}
+const PRINT_LINE = true
+const PRINT_HASH_HITS = true
+const PRINT_PRUNE_CNTS = true
+const PRINT_NODE_CNT = true
+const PRINT_TIME = true
 
 type Search struct {
+	__static__  marker.Marker
 	Root        *chess.Board
 	TT          *TranspTable
 	Constraints *SearchConstraints
-	Depth       int
 
-	isHalted bool
-	nodeCnt  int
-	line     []*chess.Move
-	score    float64
+	__controls__ marker.Marker
+	isHalted     bool
+
+	__ephemeral__    marker.Marker
+	nodeCntOnDepth   int
+	hashHitsOnDepth  int
+	pruneCntsOnDepth []int
+
+	__accumulated__ marker.Marker
+	depth           int
+	score           float64
+	accNodeCnt      int
 }
 
 func NewSearch(pos *chess.Board, constraints *SearchConstraints, tt *TranspTable) *Search {
 	return &Search{
-		Root:        pos,
-		TT:          tt,
-		Constraints: constraints,
-		isHalted:    true,
-		line:        make([]*chess.Move, 0),
+		Root:             pos,
+		TT:               tt,
+		Constraints:      constraints,
+		isHalted:         true,
+		pruneCntsOnDepth: make([]int, 0),
 	}
 }
 
-func (s *Search) UpdateFromResults(depth int, results *SearchResults) {
-	s.Depth = depth
-	s.line = []*chess.Move{results.BestMove}
-	s.score = results.Score
-}
-
 func (s *Search) IncrNode() {
-	s.nodeCnt++
-	if s.nodeCnt >= s.Constraints.NodeCntLmt() {
+	s.accNodeCnt++
+	s.nodeCntOnDepth++
+	if s.accNodeCnt >= s.Constraints.NodeCntLmt() {
 		fmt.Println("halting search, max node count reached")
 		s.isHalted = true
 	}
 }
 
-func (s *Search) IncrDepth() {
-	s.Depth++
-	if s.Depth > s.Constraints.DepthLmt() {
+func (s *Search) ToNextDepth() {
+	s.depth++
+	s.pruneCntsOnDepth = make([]int, s.depth)
+	s.nodeCntOnDepth = 0
+	s.hashHitsOnDepth = 0
+	if s.depth > s.Constraints.DepthLmt() {
 		fmt.Println("halting search, max depth reached")
 		s.isHalted = true
 	}
 }
 
-func (s *Search) Halt() {
-	s.isHalted = true
-}
-
-func (s *Search) IsHalted() bool {
-	return s.isHalted
-}
-
-func (s *Search) NodeCnt() int {
-	return s.nodeCnt
+func (s *Search) TallyPrune(parDepth, cnt int) {
+	idx := len(s.pruneCntsOnDepth) - parDepth
+	s.pruneCntsOnDepth[idx] += cnt
 }
 
 func (s *Search) Start() {
@@ -78,30 +79,56 @@ func (s *Search) Start() {
 	go func() {
 		time.Sleep(time.Duration(maxSearchMs) * time.Millisecond)
 		fmt.Println("halting search, search time allowance reached")
-		s.Halt()
+		s.isHalted = true
 	}()
 	var lastResultTime = time.Now()
 	var line []*chess.Move
 	for {
-		s.IncrDepth()
+		s.ToNextDepth()
 
-		if s.IsHalted() {
+		if s.isHalted {
 			break
 		}
 
-		results := s.searchToDepth(s.Root, s.Depth, -math.MaxFloat64, math.MaxFloat64)
+		score := s.searchToDepth(s.Root, s.depth, -math.MaxFloat64, math.MaxFloat64)
 		dt := time.Now().Sub(lastResultTime)
 		lastResultTime = time.Now()
+		out := fmt.Sprintf("info depth %d score %f", s.depth, score)
+
 		line = s.BestLine(s.Root)
-		var lineStr string
-		for moveIdx, move := range line {
-			if moveIdx == 0 {
-				lineStr += move.ToLongAlgebraic()
-			} else {
-				lineStr += " " + move.ToLongAlgebraic()
+		if PRINT_LINE {
+			var lineStr string
+			for moveIdx, move := range line {
+				if moveIdx == 0 {
+					lineStr += move.ToLongAlgebraic()
+				} else {
+					lineStr += " " + move.ToLongAlgebraic()
+				}
+			}
+			out += fmt.Sprintf(" moves %s", lineStr)
+		} else {
+			out += fmt.Sprintf(" move %s", line[0].ToLongAlgebraic())
+		}
+
+		if PRINT_NODE_CNT {
+			out += fmt.Sprintf(" nodes %d", s.nodeCntOnDepth)
+		}
+
+		if PRINT_HASH_HITS {
+			out += fmt.Sprintf(" hits %d", s.hashHitsOnDepth)
+		}
+
+		if PRINT_PRUNE_CNTS {
+			out += " pruned"
+			for _, pruneCnt := range s.pruneCntsOnDepth {
+				out += fmt.Sprintf(" %d", pruneCnt)
 			}
 		}
-		fmt.Printf("info depth %d score %f move %s nodes %d time %dms\n", s.Depth, results.Score, lineStr, s.NodeCnt(), dt.Milliseconds())
+
+		if PRINT_TIME {
+			out += fmt.Sprintf(" time %dms", dt.Milliseconds())
+		}
+		fmt.Println(out)
 	}
 	if len(line) > 0 {
 		fmt.Printf("bestmove %s\n", line[0].ToLongAlgebraic())
@@ -109,21 +136,19 @@ func (s *Search) Start() {
 
 }
 
-func (s *Search) searchToDepth(pos *chess.Board, depth int, alpha float64, beta float64) *SearchResults {
+func (s *Search) searchToDepth(pos *chess.Board, depth int, alpha float64, beta float64) float64 {
 	if depth == 0 || pos.Result != chess.BOARD_RESULT_IN_PROGRESS {
 		s.IncrNode()
-		return &SearchResults{BestMove: nil, Score: EvalPos(pos)}
+		return EvalPos(pos)
 	}
 
 	posHash := ZobristHash(pos)
 	var anticipatedMove *chess.Move
 	if TRANSP_TABLE_LOOKUPS_ENABLED {
 		if ttEntry, _ := s.TT.GetEntry(posHash); ttEntry != nil {
+			s.hashHitsOnDepth++
 			if ttEntry.Depth >= depth {
-				return &SearchResults{
-					BestMove: ttEntry.Move,
-					Score:    ttEntry.Score,
-				}
+				return ttEntry.Score
 			} else {
 				anticipatedMove = ttEntry.Move
 			}
@@ -137,41 +162,43 @@ func (s *Search) searchToDepth(pos *chess.Board, depth int, alpha float64, beta 
 	if MOVE_SORT_ENABLED {
 		moves = SortMoves(pos, moves, anticipatedMove)
 	}
-	var bestScore float64
 	var bestMove *chess.Move
-	for _, move := range moves {
-		if s.IsHalted() {
+	var bestScore float64
+	for moveIdx, move := range moves {
+		if s.isHalted {
 			break
 		}
 		newPos := chess.GetBoardFromMove(pos, move)
-		results := s.searchToDepth(newPos, depth-1, alpha, beta)
-		branchScore := results.Score
+		score := s.searchToDepth(newPos, depth-1, alpha, beta)
 		if pos.IsWhiteTurn {
-			if branchScore > alpha {
-				alpha = branchScore
-				bestScore = branchScore
+			if score > alpha {
+				alpha = score
+				bestScore = alpha
 				bestMove = move
-				if ALPHA_BETA_PRUNING_ENABLED && branchScore > beta {
+				if ALPHA_BETA_PRUNING_ENABLED && score >= beta {
 					// black would not allow `pos`
+					prunedCnt := len(moves) - moveIdx - 1
+					s.TallyPrune(depth, prunedCnt)
 					break
 				}
 			}
 		} else { // black turn
-			if branchScore < beta {
-				beta = branchScore
-				bestScore = branchScore
+			if score < beta {
+				beta = score
+				bestScore = beta
 				bestMove = move
-				if ALPHA_BETA_PRUNING_ENABLED && branchScore < alpha {
+				if ALPHA_BETA_PRUNING_ENABLED && score <= alpha {
 					// white would not allow `pos`
+					prunedCnt := len(moves) - moveIdx - 1
+					s.TallyPrune(depth, prunedCnt)
 					break
 				}
 			}
 		}
 	}
-	results := &SearchResults{bestMove, bestScore}
-	s.TT.PostResults(posHash, results, depth)
+	s.TT.PostResults(posHash, bestScore, bestMove, depth)
 
-	return results
+	return bestScore
 }
 
 func (s *Search) MaxSearchMs() int {

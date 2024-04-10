@@ -18,5 +18,5 @@ func StartSearchTest(tt *TranspTable) {
 	if posErr != nil {
 		log.Fatalf("pos error %s", posErr)
 	}
-	NewSearch(pos, &SearchConstraints{maxDepth: 4}, tt).Start()
+	NewSearch(pos, &SearchConstraints{maxDepth: 6}, tt).Start()
 }

@@ -16,15 +16,15 @@ func NewTranspTable() *TranspTable {
 	}
 }
 
-func (tt *TranspTable) PostResults(hash int64, results *SearchResults, depth int) {
+func (tt *TranspTable) PostResults(hash int64, score float64, move *chess.Move, depth int) {
 	tt.mu.Lock()
 	defer tt.mu.Unlock()
 	prevEntry := tt.entryByHash[hash]
 	if prevEntry == nil || depth > prevEntry.Depth {
 		tt.entryByHash[hash] = &TTEntry{
-			Score: results.Score,
+			Score: score,
 			Depth: depth,
-			Move:  results.BestMove,
+			Move:  move,
 		}
 	}
 }
