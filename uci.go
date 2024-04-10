@@ -51,7 +51,7 @@ func (uci *Uci) handleInput(s string) {
 			fmt.Println(err)
 		} else if constraints != nil {
 			fmt.Println("starting search")
-			NewSearch(uci.pos, constraints, uci.tt).Start()
+			go NewSearch(uci.pos, constraints, uci.tt).Start()
 		}
 	} else {
 		fmt.Println("unknown command:", cmd)
