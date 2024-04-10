@@ -28,7 +28,11 @@ func EvalPos(pos *chess.Board) float64 {
 	queenDiff := int(matCount.WhiteQueenCount) - int(matCount.BlackQueenCount)
 	rawScore := PAWN_VAL*pawnDiff + KNIGHT_VAL*knightDiff + BISHOP_VAL*bishopDiff +
 		ROOK_VAL*rookDiff + QUEEN_VAL*queenDiff
-	return float64(rawScore) / 100
+	if pos.IsWhiteTurn {
+		return float64(rawScore) / 100
+	} else {
+		return -float64(rawScore) / 100
+	}
 	// TODO: attacks (direct and/or discoveries) - Maybe too slow to justify?
 
 	// TODO: positional eval (square value by piece lookups and castling)
