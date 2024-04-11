@@ -10,7 +10,7 @@ type Bitboard uint64
 func (b Bitboard) String() string {
 	var rtnBuilder = strings.Builder{}
 	for rank := 8; rank > 0; rank-- {
-		rtnBuilder.WriteString(fmt.Sprintf("%d|", rank))
+		rtnBuilder.WriteString(fmt.Sprintf("%d ", rank))
 		var mask Bitboard
 		for file := 1; file < 9; file++ {
 			idx := 8*(rank-1) + (file - 1)
@@ -33,7 +33,7 @@ func (b Bitboard) String() string {
 		}
 		rtnBuilder.WriteByte('\n')
 	}
-	rtnBuilder.WriteString("――――――――――――――――――\n |")
+	rtnBuilder.WriteString("  ")
 	for file := 1; file < 9; file++ {
 		rtnBuilder.WriteByte(byte('0' + file))
 		rtnBuilder.WriteByte(' ')
