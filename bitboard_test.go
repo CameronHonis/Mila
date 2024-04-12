@@ -24,4 +24,19 @@ var _ = Describe("Bitboard", func() {
 			Expect(bitb.String()).To(Equal(expStr), fmt.Sprintf("%s\nis not\n%s", bitb.String(), expStr))
 		})
 	})
+
+	Describe("#WithHighBitsAt", func() {
+		When("the input is only a single high bit", func() {
+			It("places the single high bit as expected", func() {
+				Expect(main.WithHighBitsAt(7)).To(Equal(main.Bitboard(128)))
+			})
+		})
+		When("the input is multiple high bits", func() {
+			It("places high bits at all the specified locations", func() {
+				highBitIdxs := []int{0, 23, 12, 44, 61}
+				var expBitboard = main.Bitboard(0b00100000_00000000_00010000_00000000_00000000_10000000_00010000_00000001)
+				Expect(main.WithHighBitsAt(highBitIdxs...)).To(Equal(expBitboard))
+			})
+		})
+	})
 })

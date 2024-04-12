@@ -7,6 +7,14 @@ import (
 
 type Bitboard uint64
 
+func WithHighBitsAt(idxs ...int) Bitboard {
+	var rtn Bitboard
+	for _, idx := range idxs {
+		rtn |= 1 << idx
+	}
+	return rtn
+}
+
 func (b Bitboard) String() string {
 	var rtnBuilder = strings.Builder{}
 	for rank := 8; rank > 0; rank-- {
