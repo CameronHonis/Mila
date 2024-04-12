@@ -216,6 +216,16 @@ func (s Square) IsNull() bool {
 	return s == NULL_SQ
 }
 
+func (s Square) String() string {
+	if s == NULL_SQ {
+		return "0"
+	}
+	rank := (s / 8) + 1
+	file := (s % 8) + 1
+	fileChar := byte('0' + file)
+	return fmt.Sprintf("%c%d", fileChar, rank)
+}
+
 type Result uint8
 
 const (

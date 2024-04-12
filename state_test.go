@@ -72,9 +72,10 @@ var _ = Describe("State", func() {
 			})
 		})
 	})
-	Describe("::ToFEN", func() {
-		It("", func() {
-
+	Describe("::FEN", func() {
+		It("serializes the position into the FEN format", func() {
+			expFen := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+			Expect(main.InitState().FEN()).To(Equal(expFen))
 		})
 	})
 })

@@ -26,6 +26,8 @@ func InitState() *State {
 		Repetitions:  make(map[ZHash]uint8),
 		Result:       RESULT_IN_PROGRESS,
 		CastleRights: [N_CASTLE_RIGHTS]bool{true, true, true, true},
+		EnPassantSq:  NULL_SQ,
+		NMoves:       1,
 	}
 }
 
@@ -87,6 +89,47 @@ func StateFromFEN(fen string) (*State, error) {
 	}
 
 	return state, nil
+}
+
+func (s *State) FEN() string {
+	var rtnBuilder strings.Builder
+	rtnBuilder.WriteString(s.Pos.FEN())
+	rtnBuilder.WriteByte(' ')
+
+	var anyCastleRights bool
+	if s.CastleRights[W_CAN_CASTLE_KINGSIDE] {
+		rtnBuilder.WriteByte('K')
+		anyCastleRights = true
+	}
+	if s.CastleRights[W_CAN_CASTLE_QUEENSIDE] {
+		rtnBuilder.WriteByte('Q')
+		anyCastleRights = true
+	}
+	if s.CastleRights[B_CAN_CASTLE_KINGSIDE] {
+		rtnBuilder.WriteByte('k')
+		anyCastleRights = true
+	}
+	if s.CastleRights[B_CAN_CASTLE_QUEENSIDE] {
+		rtnBuilder.WriteByte('q')
+		anyCastleRights = true
+	}
+	if !anyCastleRights {
+		rtnBuilder.WriteByte('-')
+	}
+	rtnBuilder.WriteByte(' ')
+
+	if s.EnPassantSq.IsNull() {
+		rtnBuilder.WriteByte('-')
+	} else {
+		rtnBuilder.WriteString(s.EnPassantSq.String())
+	}
+	rtnBuilder.WriteByte(' ')
+
+	rtnBuilder.WriteString(strconv.Itoa(int(s.Rule50)))
+	rtnBuilder.WriteByte(' ')
+
+	rtnBuilder.WriteString(strconv.Itoa(int(s.NMoves)))
+	return rtnBuilder.String()
 }
 
 type Position struct {
