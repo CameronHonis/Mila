@@ -9,51 +9,22 @@ import (
 var _ = Describe("State", func() {
 	Describe("#StateFromFEN", func() {
 		When("the FEN is not valid", func() {
-			When("the FEN does not have enough segments", func() {
-				It("returns an error", func() {
-					fen := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0"
-					Expect(main.StateFromFEN(fen)).Error().To(HaveOccurred())
-				})
-			})
-			When("the FEN has too many segments", func() {
-				It("returns an error", func() {
-					fen := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 1"
-					Expect(main.StateFromFEN(fen)).Error().To(HaveOccurred())
-				})
-			})
-			When("the FEN pieces contain too many (9) rows", func() {
-				It("returns an error", func() {
-
-				})
-			})
-			When("the FEN pieces contain too few (7) rows", func() {
-				It("returns an error", func() {
-
-				})
-			})
-			When("a row in the FEN pieces contain too many (9) files", func() {
-				It("returns an error", func() {
-
-				})
-			})
-			When("a row in the FEN pieces contain too few (7) files", func() {
-				It("returns an error", func() {
-
-				})
-			})
 			When("the FEN contains an invalid turn specifier", func() {
 				It("returns an error", func() {
-
+					fen := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR x KQkq - 0 1"
+					Expect(main.StateFromFEN(fen)).Error().To(HaveOccurred())
 				})
 			})
 			When("the FEN contains an invalid en passant square", func() {
 				It("returns an error", func() {
-
+					fen := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq a9 0 1"
+					Expect(main.StateFromFEN(fen)).Error().To(HaveOccurred())
 				})
 			})
 			When("the FEN contains an invalid castle rights char (X)", func() {
 				It("returns an error", func() {
-
+					fen := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w X a9 0 1"
+					Expect(main.StateFromFEN(fen)).Error().To(HaveOccurred())
 				})
 			})
 		})
@@ -121,6 +92,60 @@ var _ = Describe("Position", func() {
 				"1 ♜ ♞ ♝ ♛ ♚ ♝ ♞ ♜ \n" +
 				"  1 2 3 4 5 6 7 8 "
 			Expect(pos.String()).To(Equal(expStr))
+		})
+	})
+	Describe("#PositionFromFEN", func() {
+		When("the FEN is invalid", func() {
+			When("the FEN does not have enough segments", func() {
+				It("returns an error", func() {
+					fen := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0"
+					Expect(main.PosFromFEN(fen)).Error().To(HaveOccurred())
+				})
+			})
+			When("the FEN has too many segments", func() {
+				It("returns an error", func() {
+					fen := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 1"
+					Expect(main.PosFromFEN(fen)).Error().To(HaveOccurred())
+				})
+			})
+			When("the FEN pieces contain too many (9) rows", func() {
+				It("returns an error", func() {
+					fen := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR/8 w KQkq - 0 1"
+					Expect(main.PosFromFEN(fen)).Error().To(HaveOccurred())
+				})
+			})
+			When("the FEN pieces contain too few (7) rows", func() {
+				It("returns an error", func() {
+					fen := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP w KQkq - 0 1"
+					Expect(main.PosFromFEN(fen)).Error().To(HaveOccurred())
+				})
+			})
+			When("a row in the FEN pieces contain too many (9) files", func() {
+				It("returns an error", func() {
+					fen := "rnbqkbnrr/ppppppppp/9/9/9/9/PPPPPPPPP/RNBQKBNRR w KQkq - 0 1"
+					Expect(main.PosFromFEN(fen)).Error().To(HaveOccurred())
+				})
+			})
+			When("a row in the FEN pieces contain too few (7) files", func() {
+				It("returns an error", func() {
+					fen := "rnbqkbn/ppppppp/7/7/7/7/PPPPPPP/RNBQKBN w KQkq - 0 1"
+					Expect(main.PosFromFEN(fen)).Error().To(HaveOccurred())
+				})
+			})
+		})
+		When("the FEN is valid", func() {
+			It("returns a Position with the pieces as described in the FEN", func() {
+				fen := "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+				pos, posErr := main.PosFromFEN(fen)
+				Expect(posErr).To(Succeed())
+				Expect(pos).To(Equal(main.InitPos()))
+			})
+		})
+	})
+	Describe("::ToFEN", func() {
+		It("serializes the position into the FEN format", func() {
+			fen := main.InitPos().FEN()
+			Expect(fen).To(Equal("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w"))
 		})
 	})
 })

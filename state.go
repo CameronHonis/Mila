@@ -151,18 +151,24 @@ func PosFromFEN(fen string) (*Position, error) {
 				return nil, fmt.Errorf("too many pieces on rank %d in fen %s", rank, fen)
 			}
 			if fenPiece >= '1' && fenPiece <= '8' {
-				file += int(fenPiece - '0')
+				for i := 0; i < int(fenPiece-'0'); i++ {
+					sq := SqFromCoords(rank, file)
+					pos.pieceBitboards[EMPTY] |= WithHighBitsAt(int(sq))
+					file++
+				}
 				continue
 			}
 
-			bbIdx := 8*(rank-1) + (file - 1)
+			sq := SqFromCoords(rank, file)
 			piece := PieceFromChar(fenPiece)
-			pos.pieces[bbIdx] = piece
-			pos.pieceBitboards[piece] |= WithHighBitsAt(bbIdx)
+			pos.pieces[sq] = piece
+			pos.pieceBitboards[piece] |= WithHighBitsAt(int(sq))
 			if piece.IsWhite() {
-				pos.colorBitboards[WHITE] = WithHighBitsAt(bbIdx)
+				pos.colorBitboards[WHITE] |= WithHighBitsAt(int(sq))
+			} else {
+				pos.colorBitboards[BLACK] |= WithHighBitsAt(int(sq))
 			}
-			file += 1
+			file++
 		}
 		if file < 9 {
 			return nil, fmt.Errorf("not enough pieces on rank %d in fen %s", rank, fen)
