@@ -220,3 +220,38 @@ func (p *Position) String() string {
 	}
 	return rtnBuilder.String()
 }
+
+func (p *Position) FEN() string {
+	var rtnBuilder strings.Builder
+	for rank := 8; rank > 0; rank-- {
+		var consecSpaces int
+		for file := 1; file < 9; file++ {
+			sq := SqFromCoords(rank, file)
+			if sq == 64 {
+				fmt.Println(rank, file)
+			}
+			piece := p.pieces[sq]
+			if piece == EMPTY {
+				consecSpaces++
+			} else {
+				if consecSpaces > 0 {
+					rtnBuilder.WriteByte(byte('0' + consecSpaces))
+				}
+				rtnBuilder.WriteByte(piece.Char())
+			}
+		}
+		if consecSpaces > 0 {
+			rtnBuilder.WriteByte(byte('0' + consecSpaces))
+		}
+		if rank != 1 {
+			rtnBuilder.WriteByte('/')
+		}
+	}
+	rtnBuilder.WriteByte(' ')
+	if p.isWhiteTurn {
+		rtnBuilder.WriteByte('w')
+	} else {
+		rtnBuilder.WriteByte('b')
+	}
+	return rtnBuilder.String()
+}

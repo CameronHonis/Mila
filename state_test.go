@@ -73,7 +73,9 @@ var _ = Describe("State", func() {
 		})
 	})
 	Describe("::ToFEN", func() {
+		It("", func() {
 
+		})
 	})
 })
 
