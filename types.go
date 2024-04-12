@@ -91,6 +91,37 @@ func (p Piece) String() string {
 	}
 }
 
+func (p Piece) Char() byte {
+	if p == EMPTY {
+		return ' '
+	} else if p == W_PAWN {
+		return 'P'
+	} else if p == W_KNIGHT {
+		return 'N'
+	} else if p == W_BISHOP {
+		return 'B'
+	} else if p == W_ROOK {
+		return 'R'
+	} else if p == W_QUEEN {
+		return 'Q'
+	} else if p == W_KING {
+		return 'K'
+	} else if p == B_PAWN {
+		return 'p'
+	} else if p == B_KNIGHT {
+		return 'n'
+	} else if p == B_BISHOP {
+		return 'b'
+	} else if p == B_ROOK {
+		return 'r'
+	} else if p == B_QUEEN {
+		return 'q'
+	} else if p == B_KING {
+		return 'k'
+	}
+	return ' '
+}
+
 type Square uint8
 
 const (
@@ -175,6 +206,10 @@ func SqFromAlg(algCoords string) (Square, error) {
 	}
 	rank := algCoords[1] - '1' + 1
 	return Square(8*(rank-1) + file - 1), nil
+}
+
+func SqFromCoords(rank, file int) Square {
+	return Square(8*(rank-1) + file - 1)
 }
 
 func (s Square) IsNull() bool {

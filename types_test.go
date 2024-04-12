@@ -17,9 +17,9 @@ var _ = Describe("Types", func() {
 		})
 		When("the square algebraic notation is valid", func() {
 			It("returns a square value", func() {
-				Expect(main.SqFromAlg("a1")).To(Equal(main.Square(main.SQ_A1)))
-				Expect(main.SqFromAlg("h1")).To(Equal(main.Square(main.SQ_H1)))
-				Expect(main.SqFromAlg("d4")).To(Equal(main.Square(main.SQ_D4)))
+				Expect(main.SqFromAlg("a1")).To(Equal(main.SQ_A1))
+				Expect(main.SqFromAlg("h1")).To(Equal(main.SQ_H1))
+				Expect(main.SqFromAlg("d4")).To(Equal(main.SQ_D4))
 			})
 		})
 	})
