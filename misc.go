@@ -229,6 +229,14 @@ func (s Square) IsNull() bool {
 	return s == NULL_SQ
 }
 
+func (s Square) Rank() uint8 {
+	return uint8(s)/8 + 1
+}
+
+func (s Square) File() uint8 {
+	return uint8(s)%8 + 1
+}
+
 func (s Square) String() string {
 	if s == NULL_SQ {
 		return "0"
