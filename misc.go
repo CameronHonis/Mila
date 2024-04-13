@@ -5,6 +5,19 @@ import (
 	"math"
 )
 
+type PieceType uint8
+
+const (
+	EMPTY_PIECE_TYPE PieceType = iota
+	PAWN
+	KNIGHT
+	BISHOP
+	ROOK
+	QUEEN
+	KING
+	N_PIECE_TYPES
+)
+
 type Piece uint8
 
 const (
