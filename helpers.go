@@ -45,3 +45,16 @@ func Swap[T interface{}](slice []T, i, j int) {
 	slice[i] = slice[j]
 	slice[j] = temp
 }
+
+func BitboardsSideBySide(bb1, bb2 Bitboard) string {
+	bb1Strs := strings.Split(bb1.String(), "\n")
+	bb2Strs := strings.Split(bb2.String(), "\n")
+	builder := strings.Builder{}
+	for i := 0; i < len(bb1Strs); i++ {
+		builder.WriteString(bb1Strs[i])
+		builder.WriteString("    ")
+		builder.WriteString(bb2Strs[i])
+		builder.WriteByte('\n')
+	}
+	return builder.String()
+}
