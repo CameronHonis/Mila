@@ -14,11 +14,43 @@ var FileAttacks map[Bitboard][N_RANKS]Bitboard
 var PosDiagAttacks map[Bitboard][N_RANKS]Bitboard
 var NegDiagAttacks map[Bitboard][N_RANKS]Bitboard
 
-func Init() {
+func SlidingAttacksBB(occupied Bitboard, sq Square, pt PieceType) Bitboard {
+	initAttacks()
+	var rtn Bitboard
+	rank := sq.Rank()
+	if pt == ROOK || pt == QUEEN {
+		file := sq.File()
+		rankMask := BBWithRank(rank, 0b11111111)
+		occupiedRankBB := occupied & rankMask
+		rtn |= RankAttacks[occupiedRankBB][file-1]
+
+		fileMask := BBWithFile(file, 0b11111111)
+		occupiedFileBB := occupied & fileMask
+		rtn |= FileAttacks[occupiedFileBB][rank-1]
+	}
+	if pt == BISHOP || pt == QUEEN {
+		posDiagMask := BBWithPosDiag(sq.PosDiagIdx(), 0b11111111)
+		occupiedPosDiagBB := occupied & posDiagMask
+		rtn |= PosDiagAttacks[occupiedPosDiagBB][rank-1]
+
+		negDiagMask := BBWithNegDiag(sq.NegDiagIdx(), 0b11111111)
+		occupiedNegDiagBB := occupied & negDiagMask
+		rtn |= NegDiagAttacks[occupiedNegDiagBB][rank-1]
+	}
+	return rtn
+}
+
+var isInitted = false
+
+func initAttacks() {
+	if isInitted {
+		return
+	}
 	initRankAttacks()
 	initFileAttacks()
 	initPosDiagAttacks()
 	initNegDiagAttacks()
+	isInitted = true
 }
 
 func initRankAttacks() {
