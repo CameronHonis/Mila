@@ -1,5 +1,7 @@
 package main
 
+import "log"
+
 type PieceType uint8
 
 const (
@@ -128,6 +130,29 @@ func (p Piece) Char() byte {
 		return 'k'
 	}
 	return ' '
+}
+
+func (p Piece) Type() PieceType {
+	if DEBUG {
+		if p >= N_PIECES {
+			log.Fatalf("cannot get piece type of unknown piece %d", p)
+		}
+	}
+	if p == EMPTY {
+		return EMPTY_PIECE_TYPE
+	} else if p == W_PAWN || p == B_PAWN {
+		return PAWN
+	} else if p == W_KNIGHT || p == B_KNIGHT {
+		return KNIGHT
+	} else if p == W_BISHOP || p == B_BISHOP {
+		return BISHOP
+	} else if p == W_ROOK || p == B_ROOK {
+		return ROOK
+	} else if p == W_QUEEN || p == B_QUEEN {
+		return QUEEN
+	} else {
+		return KING
+	}
 }
 
 type Result uint8
