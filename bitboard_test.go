@@ -91,7 +91,7 @@ var _ = Describe("Bitboard", func() {
 	Describe("#BBWithPosDiag", func() {
 		When("the diagIdx is 0", func() {
 			It("returns the expected bitboard", func() {
-				bb := main.BBWithPosDiag(0, 0b1)
+				bb := main.BBWithPosDiag(0, 0b11111111)
 				expBB := main.BBWithSquares(main.SQ_H1)
 				Expect(bb).To(Equal(expBB))
 			})
