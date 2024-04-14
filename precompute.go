@@ -16,6 +16,7 @@ var NegDiagAttacks map[Bitboard][N_RANKS]Bitboard
 
 func Init() {
 	initRankAttacks()
+	initFileAttacks()
 }
 
 func initRankAttacks() {
@@ -56,6 +57,38 @@ func initRankAttacks() {
 			attackBBs[file-1] = attackBB
 		}
 		RankAttacks[occupiedBB] = attackBBs
+	}
+}
+
+func initFileAttacks() {
+	FileAttacks = make(map[Bitboard][N_RANKS]Bitboard)
+	for _, occupiedBB := range genAllFileOccupiedBBs() {
+		file := occupiedBB.FirstSq().File()
+		attackBBs := [N_FILES]Bitboard{}
+		for rank := uint8(1); rank <= N_FILES; rank++ {
+			var attackBB Bitboard
+			sq := SqFromCoords(int(rank), int(file))
+			upProbe := sq
+			for upProbe.Rank() < 8 {
+				upProbe += 8
+				mask := BBWithHighBitsAt(int(upProbe))
+				attackBB |= mask
+				if occupiedBB&mask > 0 {
+					break
+				}
+			}
+			downProbe := sq
+			for downProbe.Rank() > 1 {
+				downProbe -= 8
+				mask := BBWithHighBitsAt(int(downProbe))
+				attackBB |= mask
+				if occupiedBB&mask > 0 {
+					break
+				}
+			}
+			attackBBs[rank-1] = attackBB
+		}
+		FileAttacks[occupiedBB] = attackBBs
 	}
 }
 
