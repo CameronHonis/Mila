@@ -66,6 +66,23 @@ func NewMove(startSq, endSq, epSq Square, promoType PieceType, isCastles bool) M
 	return Move(startSq&0b111111)<<10 | Move(endSq&0b111111)<<4 | promoBits | moveTypeBits
 }
 
+func NewNormalMove(startSq, endSq Square) Move {
+	return NewMove(startSq, endSq, NULL_SQ, EMPTY_PIECE_TYPE, false)
+}
+
+func NewEnPassantMove(startSq, endSq Square) Move {
+	return NewMove(startSq, endSq, endSq, EMPTY_PIECE_TYPE, false)
+}
+
+func NewPromoteMoves(startSq Square, endSq Square) []Move {
+	return []Move{
+		NewMove(startSq, endSq, NULL_SQ, KNIGHT, false),
+		NewMove(startSq, endSq, NULL_SQ, BISHOP, false),
+		NewMove(startSq, endSq, NULL_SQ, ROOK, false),
+		NewMove(startSq, endSq, NULL_SQ, QUEEN, false),
+	}
+}
+
 func NullMove() Move {
 	return 0
 }
