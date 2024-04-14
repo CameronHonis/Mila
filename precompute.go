@@ -17,21 +17,14 @@ var NegDiagAttacks map[Bitboard][N_RANKS]Bitboard
 func Init() {
 	initRankAttacks()
 	initFileAttacks()
+	initPosDiagAttacks()
+	initNegDiagAttacks()
 }
 
 func initRankAttacks() {
 	RankAttacks = make(map[Bitboard][N_FILES]Bitboard)
-	for _, occupiedBB := range genAllRankOccupiedBBs() {
-		var rank uint8
-		for _rank := uint8(1); _rank <= N_RANKS; _rank++ {
-			shift := 8 * (_rank - 1)
-			if (occupiedBB>>shift)&0b11111111 > 0 {
-				rank = _rank
-			}
-		}
-		for shift := 0; rank == 0; shift += 8 {
-			rank = uint8(occupiedBB>>shift) & 0b11111111
-		}
+	for _, occupiedBB := range genRankOccupiedBBs() {
+		rank := occupiedBB.FirstSq().Rank()
 		attackBBs := [N_FILES]Bitboard{}
 		for file := uint8(1); file <= N_FILES; file++ {
 			var attackBB Bitboard
@@ -62,10 +55,10 @@ func initRankAttacks() {
 
 func initFileAttacks() {
 	FileAttacks = make(map[Bitboard][N_RANKS]Bitboard)
-	for _, occupiedBB := range genAllFileOccupiedBBs() {
+	for _, occupiedBB := range genFileOccupiedBBs() {
 		file := occupiedBB.FirstSq().File()
-		attackBBs := [N_FILES]Bitboard{}
-		for rank := uint8(1); rank <= N_FILES; rank++ {
+		attackBBs := [N_RANKS]Bitboard{}
+		for rank := uint8(1); rank <= N_RANKS; rank++ {
 			var attackBB Bitboard
 			sq := SqFromCoords(int(rank), int(file))
 			upProbe := sq
@@ -92,7 +85,83 @@ func initFileAttacks() {
 	}
 }
 
-func genAllRankOccupiedBBs() []Bitboard {
+func initPosDiagAttacks() {
+	PosDiagAttacks = make(map[Bitboard][N_RANKS]Bitboard)
+	for _, occupiedBB := range genPosDiagOccupiedBBs() {
+		diagIdx := occupiedBB.FirstSq().PosDiagIdx()
+		diagMask := BBWithPosDiag(diagIdx, 0b11111111)
+		attackBBs := [N_RANKS]Bitboard{}
+		for rank := uint8(1); rank < N_RANKS; rank++ {
+			var attackBB Bitboard
+			rankMask := BBWithRank(rank, 0b11111111)
+			sq := (diagMask & rankMask).FirstSq()
+			if sq == NULL_SQ {
+				attackBBs[rank-1] = attackBB
+				continue
+			}
+			downLeftProbe := sq
+			for downLeftProbe.Rank() > 1 && downLeftProbe.File() > 1 {
+				downLeftProbe -= 9
+				mask := BBWithHighBitsAt(int(downLeftProbe))
+				attackBB |= mask
+				if occupiedBB&mask > 0 {
+					break
+				}
+			}
+			upRightProbe := sq
+			for upRightProbe.Rank() < 8 && upRightProbe.File() < 8 {
+				upRightProbe += 9
+				mask := BBWithHighBitsAt(int(upRightProbe))
+				attackBB |= mask
+				if occupiedBB&mask > 0 {
+					break
+				}
+			}
+			attackBBs[rank-1] = attackBB
+		}
+		PosDiagAttacks[occupiedBB] = attackBBs
+	}
+}
+
+func initNegDiagAttacks() {
+	NegDiagAttacks = make(map[Bitboard][N_RANKS]Bitboard)
+	for _, occupiedBB := range genNegDiagOccupiedBBs() {
+		diagIdx := occupiedBB.FirstSq().NegDiagIdx()
+		diagMask := BBWithNegDiag(diagIdx, 0b11111111)
+		attackBBs := [N_RANKS]Bitboard{}
+		for rank := uint8(1); rank < N_RANKS; rank++ {
+			var attackBB Bitboard
+			rankMask := BBWithRank(rank, 0b11111111)
+			sq := (diagMask & rankMask).FirstSq()
+			if sq == NULL_SQ {
+				attackBBs[rank-1] = attackBB
+				continue
+			}
+			downRightProbe := sq
+			for downRightProbe.Rank() > 1 && downRightProbe.File() < 8 {
+				downRightProbe -= 7
+				mask := BBWithHighBitsAt(int(downRightProbe))
+				attackBB |= mask
+				if occupiedBB&mask > 0 {
+					break
+				}
+			}
+			upLeftProbe := sq
+			for upLeftProbe.Rank() < 8 && upLeftProbe.File() > 1 {
+				upLeftProbe += 7
+				mask := BBWithHighBitsAt(int(upLeftProbe))
+				attackBB |= mask
+				if occupiedBB&mask > 0 {
+					break
+				}
+			}
+			attackBBs[rank-1] = attackBB
+		}
+		NegDiagAttacks[occupiedBB] = attackBBs
+	}
+}
+
+func genRankOccupiedBBs() []Bitboard {
 	rtn := make([]Bitboard, 0)
 	for rank := uint8(1); rank <= N_RANKS; rank++ {
 		for occupied := 1; occupied < N_ROW_PERMUS; occupied++ {
@@ -103,7 +172,7 @@ func genAllRankOccupiedBBs() []Bitboard {
 	return rtn
 }
 
-func genAllFileOccupiedBBs() []Bitboard {
+func genFileOccupiedBBs() []Bitboard {
 	rtn := make([]Bitboard, 0)
 	for file := uint8(1); file <= N_FILES; file++ {
 		for occupied := 1; occupied < N_ROW_PERMUS; occupied++ {
@@ -114,7 +183,7 @@ func genAllFileOccupiedBBs() []Bitboard {
 	return rtn
 }
 
-func genAllPosDiagOccupiedBBs() []Bitboard {
+func genPosDiagOccupiedBBs() []Bitboard {
 	rtn := make([]Bitboard, 0)
 	for posDiagIdx := uint8(0); posDiagIdx < N_DIAGS; posDiagIdx++ {
 		var diagSize uint8
@@ -132,7 +201,7 @@ func genAllPosDiagOccupiedBBs() []Bitboard {
 	return rtn
 }
 
-func genAllNegDiagOccupiedBBs() []Bitboard {
+func genNegDiagOccupiedBBs() []Bitboard {
 	rtn := make([]Bitboard, 0)
 	for negDiagIdx := uint8(0); negDiagIdx < N_DIAGS; negDiagIdx++ {
 		var diagSize uint8

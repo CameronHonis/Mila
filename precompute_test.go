@@ -6,21 +6,21 @@ import (
 )
 
 var _ = Describe("Precompute", func() {
-	Describe("#genAllRankOccupiedBBs", func() {
+	Describe("#genRankOccupiedBBs", func() {
 		It("generates the appropriate number of bitboards", func() {
-			bbs := genAllRankOccupiedBBs()
+			bbs := genRankOccupiedBBs()
 			Expect(bbs).To(HaveLen(8 * 255))
 		})
 	})
-	Describe("#genAllFileOccupiedBBs", func() {
+	Describe("#genFileOccupiedBBs", func() {
 		It("generates the appropriate number of bitboards", func() {
-			bbs := genAllFileOccupiedBBs()
+			bbs := genFileOccupiedBBs()
 			Expect(bbs).To(HaveLen(8 * 255))
 		})
 	})
-	Describe("#genAllPosOccupiedBBs", func() {
+	Describe("#genPosDiagOccupiedBBs", func() {
 		It("generates the appropriate number of bitboards", func() {
-			bbs := genAllPosDiagOccupiedBBs()
+			bbs := genPosDiagOccupiedBBs()
 			var expNBBs int
 			expNBBs += 2 * ((1 << 1) - 1) // corners
 			expNBBs += 2 * ((1 << 2) - 1) // diags 1 & 13
@@ -33,9 +33,9 @@ var _ = Describe("Precompute", func() {
 			Expect(bbs).To(HaveLen(expNBBs))
 		})
 	})
-	Describe("#genAllPosOccupiedBBs", func() {
+	Describe("#genNegDiagOccupiedBBs", func() {
 		It("generates the appropriate number of bitboards", func() {
-			bbs := genAllNegDiagOccupiedBBs()
+			bbs := genNegDiagOccupiedBBs()
 			var expNBBs int
 			expNBBs += 2 * ((1 << 1) - 1) // corners
 			expNBBs += 2 * ((1 << 2) - 1) // diags 1 & 13
