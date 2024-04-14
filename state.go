@@ -132,6 +132,12 @@ func (s *State) FEN() string {
 	return rtnBuilder.String()
 }
 
+func (s *State) String() string {
+	fenPieces := strings.Split(s.FEN(), " ")
+	shortFen := strings.Join(fenPieces[1:], " ")
+	return fmt.Sprintf("%s\n%s", shortFen, s.Pos)
+}
+
 //func (s *State) LegalMoves() []Move {
 //
 //}
