@@ -2,52 +2,11 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"strings"
 )
 
 type Bitboard uint64
-
-func WithHighBitsAt(idxs ...int) Bitboard {
-	var rtn Bitboard
-	for _, idx := range idxs {
-		rtn |= 1 << idx
-	}
-	return rtn
-}
-
-func (b Bitboard) String() string {
-	var rtnBuilder = strings.Builder{}
-	for rank := 8; rank > 0; rank-- {
-		rtnBuilder.WriteString(fmt.Sprintf("%d ", rank))
-		var mask Bitboard
-		for file := 1; file < 9; file++ {
-			idx := 8*(rank-1) + (file - 1)
-			mask = 1 << idx
-			if mask&b > 0 {
-				rtnBuilder.WriteString("██")
-			} else {
-				var isDark bool
-				if rank%2 == 0 {
-					isDark = file%2 == 0
-				} else {
-					isDark = file%2 == 1
-				}
-				if isDark {
-					rtnBuilder.WriteString("░░")
-				} else {
-					rtnBuilder.WriteString("  ")
-				}
-			}
-		}
-		rtnBuilder.WriteByte('\n')
-	}
-	rtnBuilder.WriteString("  ")
-	for file := 1; file < 9; file++ {
-		rtnBuilder.WriteByte(byte('0' + file))
-		rtnBuilder.WriteByte(' ')
-	}
-	return rtnBuilder.String()
-}
 
 const (
 	RANK_1      = Bitboard(0b11111111)
@@ -97,3 +56,139 @@ const (
 	NEG_DIAG_14 = Bitboard(0b100000010000000000000000000000000000000000000000000000000000000)
 	NEG_DIAG_15 = Bitboard(0b1000000000000000000000000000000000000000000000000000000000000000)
 )
+
+const N_RANKS = 8
+const N_FILES = 8
+const N_DIAGS = 15
+
+func BBWithHighBitsAt(idxs ...int) Bitboard {
+	var rtn Bitboard
+	for _, idx := range idxs {
+		rtn |= 1 << idx
+	}
+	return rtn
+}
+
+func BBWithSquares(squares ...Square) Bitboard {
+	var rtn Bitboard
+	for _, sq := range squares {
+		rtn |= 1 << sq
+	}
+	return rtn
+}
+
+func BBWithRank(rank, bits uint8) Bitboard {
+	if DEBUG {
+		if rank < 1 || rank > N_RANKS {
+			log.Fatalf("invalid rank %d, expected within range [1, %d]", rank, N_RANKS)
+		}
+	}
+	return Bitboard(bits) << (8 * (rank - 1))
+}
+
+func BBWithFile(file, bits uint8) Bitboard {
+	if DEBUG {
+		if file < 1 || file > N_FILES {
+			log.Fatalf("invalid file %d, expected within range [1, %d]", file, N_FILES)
+		}
+	}
+	var bb Bitboard
+	for r := uint8(0); r < 8; r++ {
+		rBit := (bits >> r) & 0b1
+		bbIdx := 8*r + file - 1
+		bb |= Bitboard(rBit) << bbIdx
+	}
+	return bb
+}
+
+// BBWithPosDiag writes all the bits in order on the positive diagonal
+// The diagonal index starts from H1 -> A1 -> A8. The less significant the bit,
+// the closer to the bottom (rank=1).
+func BBWithPosDiag(diagIdx, bits uint8) Bitboard {
+	if DEBUG {
+		if diagIdx < 0 || diagIdx >= N_DIAGS {
+			log.Fatalf("invalid diag idx %d, expected within range [0, %d]", diagIdx, N_DIAGS)
+		}
+	}
+	var bb Bitboard
+	var bbIdx uint8
+	var nDiagSq uint8
+	if diagIdx <= 7 {
+		bbIdx = 7 - diagIdx
+		nDiagSq = diagIdx + 1
+	} else {
+		bbIdx = 8 * (diagIdx - 7)
+		nDiagSq = 15 - diagIdx
+	}
+
+	for i := uint8(0); i < nDiagSq; i++ {
+		iBit := (bits >> i) & 0b1
+		bb |= Bitboard(iBit) << bbIdx
+		bbIdx += 9
+	}
+
+	return bb
+}
+
+// BBWithNegDiag writes all bits in order on the negative diagonal
+// The diagonal index starts from A1 -> H1 -> H8. The less significant the bit,
+// the closer to the bottom (rank=1).
+func BBWithNegDiag(diagIdx, bits uint8) Bitboard {
+	if DEBUG {
+		if diagIdx < 0 || diagIdx >= N_DIAGS {
+			log.Fatalf("invalid diag idx %d, expected within range [0, %d]", diagIdx, N_DIAGS)
+		}
+	}
+	var bb Bitboard
+	var bbIdx uint8
+	var nDiagSq uint8
+	if diagIdx <= 7 {
+		bbIdx = diagIdx
+		nDiagSq = diagIdx + 1
+	} else {
+		bbIdx = 8*(diagIdx-7) + 7
+		nDiagSq = 15 - diagIdx
+	}
+
+	for i := uint8(0); i < nDiagSq; i++ {
+		iBit := (bits >> i) & 0b1
+		bb |= Bitboard(iBit) << bbIdx
+		bbIdx += 7
+	}
+
+	return bb
+}
+
+func (b Bitboard) String() string {
+	var rtnBuilder = strings.Builder{}
+	for rank := 8; rank > 0; rank-- {
+		rtnBuilder.WriteString(fmt.Sprintf("%d ", rank))
+		var mask Bitboard
+		for file := 1; file < 9; file++ {
+			idx := 8*(rank-1) + (file - 1)
+			mask = 1 << idx
+			if mask&b > 0 {
+				rtnBuilder.WriteString("██")
+			} else {
+				var isDark bool
+				if rank%2 == 0 {
+					isDark = file%2 == 0
+				} else {
+					isDark = file%2 == 1
+				}
+				if isDark {
+					rtnBuilder.WriteString("░░")
+				} else {
+					rtnBuilder.WriteString("  ")
+				}
+			}
+		}
+		rtnBuilder.WriteByte('\n')
+	}
+	rtnBuilder.WriteString("  ")
+	for file := 1; file < 9; file++ {
+		rtnBuilder.WriteByte(byte('0' + file))
+		rtnBuilder.WriteByte(' ')
+	}
+	return rtnBuilder.String()
+}
