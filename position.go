@@ -69,7 +69,7 @@ func PosFromFEN(fen string) (*Position, error) {
 			if fenPiece >= '1' && fenPiece <= '8' {
 				for i := 0; i < int(fenPiece-'0'); i++ {
 					sq := SqFromCoords(rank, file)
-					pos.pieceBitboards[EMPTY] |= WithHighBitsAt(int(sq))
+					pos.pieceBitboards[EMPTY] |= BBWithHighBitsAt(int(sq))
 					file++
 				}
 				continue
@@ -78,11 +78,11 @@ func PosFromFEN(fen string) (*Position, error) {
 			sq := SqFromCoords(rank, file)
 			piece := PieceFromChar(fenPiece)
 			pos.pieces[sq] = piece
-			pos.pieceBitboards[piece] |= WithHighBitsAt(int(sq))
+			pos.pieceBitboards[piece] |= BBWithHighBitsAt(int(sq))
 			if piece.IsWhite() {
-				pos.colorBitboards[WHITE] |= WithHighBitsAt(int(sq))
+				pos.colorBitboards[WHITE] |= BBWithHighBitsAt(int(sq))
 			} else {
-				pos.colorBitboards[BLACK] |= WithHighBitsAt(int(sq))
+				pos.colorBitboards[BLACK] |= BBWithHighBitsAt(int(sq))
 			}
 			file++
 		}

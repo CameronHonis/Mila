@@ -132,6 +132,6 @@ func (s *State) FEN() string {
 	return rtnBuilder.String()
 }
 
-func (s *State) LegalMoves() []Move {
-
-}
+//func (s *State) LegalMoves() []Move {
+//
+//}
