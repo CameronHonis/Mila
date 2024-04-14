@@ -8,23 +8,6 @@ import (
 )
 
 var _ = Describe("Bitboard", func() {
-	Describe("::String", func() {
-		It("Generates a multi-line string of a board that represents the bitboard", func() {
-			var bitb main.Bitboard = 0b00000000_00100000_00001000_00000100_00000100_00001000_00100001_00010010
-			expStr := "" +
-				"8   ░░  ░░  ░░  ░░\n" +
-				"7 ░░  ░░  ░░██░░  \n" +
-				"6   ░░  ██  ░░  ░░\n" +
-				"5 ░░  ██  ░░  ░░  \n" +
-				"4   ░░██░░  ░░  ░░\n" +
-				"3 ░░  ░░██░░  ░░  \n" +
-				"2 ██░░  ░░  ██  ░░\n" +
-				"1 ░░██░░  ██  ░░  \n" +
-				"  1 2 3 4 5 6 7 8 "
-			Expect(bitb.String()).To(Equal(expStr), fmt.Sprintf("%s\nis not\n%s", bitb.String(), expStr))
-		})
-	})
-
 	Describe("#BBWithHighBitsAt", func() {
 		When("the input is only a single high bit", func() {
 			It("places the single high bit as expected", func() {
@@ -161,6 +144,33 @@ var _ = Describe("Bitboard", func() {
 				expBB := main.BBWithSquares(main.SQ_H8)
 				Expect(bb).To(Equal(expBB))
 			})
+		})
+	})
+
+	Describe("::String", func() {
+		It("Generates a multi-line string of a board that represents the bitboard", func() {
+			var bitb main.Bitboard = 0b00000000_00100000_00001000_00000100_00000100_00001000_00100001_00010010
+			expStr := "" +
+				"8   ░░  ░░  ░░  ░░\n" +
+				"7 ░░  ░░  ░░██░░  \n" +
+				"6   ░░  ██  ░░  ░░\n" +
+				"5 ░░  ██  ░░  ░░  \n" +
+				"4   ░░██░░  ░░  ░░\n" +
+				"3 ░░  ░░██░░  ░░  \n" +
+				"2 ██░░  ░░  ██  ░░\n" +
+				"1 ░░██░░  ██  ░░  \n" +
+				"  1 2 3 4 5 6 7 8 "
+			Expect(bitb.String()).To(Equal(expStr), fmt.Sprintf("%s\nis not\n%s", bitb.String(), expStr))
+		})
+	})
+
+	Describe("::FirstSq", func() {
+		It("returns the first square in the bitboard traversing in row-major order", func() {
+			Expect(main.BBWithSquares(main.SQ_A1).FirstSq()).To(Equal(main.SQ_A1))
+			Expect(main.BBWithSquares(main.SQ_A2).FirstSq()).To(Equal(main.SQ_A2))
+			Expect(main.BBWithSquares(main.SQ_D4).FirstSq()).To(Equal(main.SQ_D4))
+			Expect(main.BBWithSquares(main.SQ_H8).FirstSq()).To(Equal(main.SQ_H8))
+			Expect(main.Bitboard(0).FirstSq()).To(Equal(main.NULL_SQ))
 		})
 	})
 })

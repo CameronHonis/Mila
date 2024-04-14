@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"math/bits"
 	"strings"
 )
 
@@ -191,4 +192,16 @@ func (b Bitboard) String() string {
 		rtnBuilder.WriteByte(' ')
 	}
 	return rtnBuilder.String()
+}
+
+// FirstSq returns the square of the least significant bit in the bitboard
+// This essentially iterations in row-major order starting from
+// A1 -> ... -> H1 -> ... -> H8
+func (b Bitboard) FirstSq() Square {
+	lsb := bits.TrailingZeros64(uint64(b))
+	if lsb == 64 {
+		return NULL_SQ
+	} else {
+		return Square(lsb)
+	}
 }
