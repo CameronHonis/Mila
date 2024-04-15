@@ -113,7 +113,7 @@ func (s Square) String() string {
 	}
 	rank := (s / 8) + 1
 	file := (s % 8) + 1
-	fileChar := byte('0' + file)
+	fileChar := byte('a' + file - 1)
 	return fmt.Sprintf("%c%d", fileChar, rank)
 }
 
