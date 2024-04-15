@@ -171,3 +171,18 @@ func (p *Position) FEN() string {
 	}
 	return rtnBuilder.String()
 }
+
+func (p *Position) OccupiedBB() Bitboard {
+	// TODO: evaluate the speed of this method in the broader context of search speed
+	//		 relative to maintaining an updated Position.occupied field on make/unmake
+	//		 move.
+
+	var rtn Bitboard
+	for pieceIdx, pieceBB := range p.pieceBitboards {
+		if pieceIdx == 0 {
+			continue
+		}
+		rtn ^= pieceBB
+	}
+	return rtn
+}
