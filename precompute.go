@@ -14,6 +14,7 @@ var fileAttacks map[Bitboard][N_RANKS]Bitboard
 var posDiagAttacks map[Bitboard][N_RANKS]Bitboard
 var negDiagAttacks map[Bitboard][N_RANKS]Bitboard
 var knightAttacks [N_SQUARES]Bitboard
+var kingAttacks [N_SQUARES]Bitboard
 
 func SlidingAttacksBB(occupied Bitboard, sq Square, pt PieceType) Bitboard {
 	initAttacks()
@@ -46,6 +47,11 @@ func KnightAttacksBB(sq Square) Bitboard {
 	return knightAttacks[sq]
 }
 
+func KingAttacksBB(sq Square) Bitboard {
+	initAttacks()
+	return kingAttacks[sq]
+}
+
 var isInitted = false
 
 func initAttacks() {
@@ -57,6 +63,7 @@ func initAttacks() {
 	initPosDiagAttacks()
 	initNegDiagAttacks()
 	initKnightAttacks()
+	initKingAttacks()
 	isInitted = true
 }
 
@@ -231,6 +238,41 @@ func initKnightAttacks() {
 				bb |= BBWithSquares(sq - 15)
 			}
 			knightAttacks[sq] = bb
+		}
+	}
+}
+
+func initKingAttacks() {
+	kingAttacks = [N_SQUARES]Bitboard{}
+	for rank := 1; rank < 9; rank++ {
+		for file := 1; file < 9; file++ {
+			sq := SqFromCoords(rank, file)
+			var bb Bitboard
+			if file > 1 {
+				bb |= BBWithSquares(sq - 1) // left
+				if rank > 1 {
+					bb |= BBWithSquares(sq - 9) // left-down
+				}
+				if rank < 8 {
+					bb |= BBWithSquares(sq + 7) // left-up
+				}
+			}
+			if file < 8 {
+				bb |= BBWithSquares(sq + 1) // right
+				if rank > 1 {
+					bb |= BBWithSquares(sq - 7) // right-down
+				}
+				if rank < 8 {
+					bb |= BBWithSquares(sq + 9) // right-up
+				}
+			}
+			if rank > 1 {
+				bb |= BBWithSquares(sq - 8) // down
+			}
+			if rank < 8 {
+				bb |= BBWithSquares(sq + 8) // up
+			}
+			kingAttacks[sq] = bb
 		}
 	}
 }
