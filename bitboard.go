@@ -205,3 +205,15 @@ func (b Bitboard) FirstSq() Square {
 		return Square(lsb)
 	}
 }
+
+// PopFirstSq searches for the least significant bit, searching the board in
+// rank-major order. It returns the square that represents the position of this
+// bit and also returns a bitboard with the searched bit set low.
+func (b Bitboard) PopFirstSq() (Square, Bitboard) {
+	sq := b.FirstSq()
+	if sq == NULL_SQ {
+		return sq, b
+	}
+	b ^= BBWithSquares(sq)
+	return sq, b
+}
