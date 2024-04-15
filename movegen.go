@@ -97,16 +97,23 @@ func GenPseudoLegalPawnMoves(pos *Position, sq, epSq Square) []Move {
 	return rtn
 }
 
-func GenPseudoLegalKnightMoves(pos *Position, sq Square) []Move {
+func GenPseudoLegalNimblePieceMoves(pos *Position, sq Square) []Move {
 	piece := pos.pieces[sq]
+	pt := piece.Type()
 	if DEBUG {
-		if piece.Type() != KNIGHT {
-			log.Fatalf("cannot generate knight move for non-knight on %s in pos:\n%s", sq, pos)
+		if pt != KNIGHT && pt != BISHOP && pt != ROOK && pt != QUEEN {
+			log.Fatalf("cannot generate nimble piece move for piece on %d in pos:\n%s", sq, pos)
 		}
 	}
+	var attackBB Bitboard
+	if pt == KNIGHT {
+		attackBB = KnightAttacksBB(sq)
+	} else {
+		attackBB = SlidingAttacksBB(pos.OccupiedBB(), sq, pt)
+	}
 	isWhite := piece.IsWhite()
+
 	rtn := make([]Move, 0)
-	attackBB := KnightAttacksBB(sq)
 	for attackBB > 0 {
 		var attackSq Square
 		attackSq, attackBB = attackBB.PopFirstSq()
@@ -118,19 +125,6 @@ func GenPseudoLegalKnightMoves(pos *Position, sq Square) []Move {
 	return rtn
 }
 
-//
-//func GenPseudoLegalBishopMoves(state *State, sq Square) []Move {
-//
-//}
-//
-//func GenPseudoLegalRookMoves(state *State, sq Square) []Move {
-//
-//}
-//
-//func GenPseudoLegalQueenMoves(state *State, sq Square) []Move {
-//
-//}
-//
 //func GenPseudoLegalKingMoves(state *State, sq Square) []Move {
 //
 //}
