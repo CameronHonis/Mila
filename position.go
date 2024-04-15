@@ -178,11 +178,11 @@ func (p *Position) OccupiedBB() Bitboard {
 	//		 move.
 
 	var rtn Bitboard
-	for pieceIdx, pieceBB := range p.pieceBitboards {
-		if pieceIdx == 0 {
+	for colorIdx, colorBB := range p.colorBitboards {
+		if colorIdx == 0 {
 			continue
 		}
-		rtn ^= pieceBB
+		rtn ^= colorBB
 	}
 	return rtn
 }
