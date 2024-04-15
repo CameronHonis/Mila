@@ -125,6 +125,38 @@ func GenPseudoLegalNimblePieceMoves(pos *Position, sq Square) []Move {
 	return rtn
 }
 
-//func GenPseudoLegalKingMoves(state *State, sq Square) []Move {
-//
-//}
+func GenPseudoLegalKingMoves(pos *Position, sq Square, canCastleKS, canCastleQS bool) []Move {
+	piece := pos.pieces[sq]
+	if DEBUG {
+		if piece.Type() != KING {
+			log.Fatalf("cannot generate king moves for non-king piece on %d in pos:\n%s", sq, pos)
+		}
+	}
+	attackBB := KingAttacksBB(sq)
+	isWhite := piece.IsWhite()
+
+	rtn := make([]Move, 0)
+	for attackBB > 0 {
+		var attackSq Square
+		attackSq, attackBB = attackBB.PopFirstSq()
+		attackedPiece := pos.pieces[attackSq]
+		if attackedPiece == EMPTY || attackedPiece.IsWhite() != isWhite {
+			rtn = append(rtn, NewNormalMove(sq, attackSq))
+		}
+	}
+
+	occupiedBB := pos.OccupiedBB()
+	if canCastleKS {
+		castlePathMask := BBWithSquares(sq+1, sq+2)
+		if occupiedBB&castlePathMask == 0 {
+			rtn = append(rtn, NewMove(sq, sq+2, NULL_SQ, EMPTY_PIECE_TYPE, true))
+		}
+	}
+	if canCastleQS {
+		castlePathMask := BBWithSquares(sq-1, sq-2)
+		if occupiedBB&castlePathMask == 0 {
+			rtn = append(rtn, NewMove(sq, sq-2, NULL_SQ, EMPTY_PIECE_TYPE, true))
+		}
+	}
+	return rtn
+}
