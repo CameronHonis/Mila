@@ -14,7 +14,7 @@ func GenPseudoLegalPawnMoves(pos *Position, sq, epSq Square) []Move {
 	piece := pos.pieces[sq]
 	if DEBUG {
 		if piece.Type() != PAWN {
-			log.Fatalf("cannot generate pawn move for non-pawn piece in pos:\n%s", pos)
+			log.Fatalf("cannot generate pawn move for non-pawn piece on %s in pos:\n%s", pos)
 		}
 	}
 	file := sq.File()
@@ -97,9 +97,27 @@ func GenPseudoLegalPawnMoves(pos *Position, sq, epSq Square) []Move {
 	return rtn
 }
 
-//func GenPseudoLegalKnightMoves(state *State, sq Square) []Move {
-//
-//}
+func GenPseudoLegalKnightMoves(pos *Position, sq Square) []Move {
+	piece := pos.pieces[sq]
+	if DEBUG {
+		if piece.Type() != KNIGHT {
+			log.Fatalf("cannot generate knight move for non-knight on %s in pos:\n%s", sq, pos)
+		}
+	}
+	isWhite := piece.IsWhite()
+	rtn := make([]Move, 0)
+	attackBB := KnightAttacksBB(sq)
+	for attackBB > 0 {
+		var attackSq Square
+		attackSq, attackBB = attackBB.PopFirstSq()
+		attackedPiece := pos.pieces[attackSq]
+		if attackedPiece == EMPTY || attackedPiece.IsWhite() != isWhite {
+			rtn = append(rtn, NewNormalMove(sq, attackSq))
+		}
+	}
+	return rtn
+}
+
 //
 //func GenPseudoLegalBishopMoves(state *State, sq Square) []Move {
 //

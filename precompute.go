@@ -9,11 +9,11 @@ const N_ROW_PERMUS = 1 << 8
 // reduces the overall amount of entries in the set. This works out since a rooks moves
 // on a given row have no dependence to its moves on a file, and vice versa.
 
-var RankAttacks map[Bitboard][N_FILES]Bitboard
-var FileAttacks map[Bitboard][N_RANKS]Bitboard
-var PosDiagAttacks map[Bitboard][N_RANKS]Bitboard
-var NegDiagAttacks map[Bitboard][N_RANKS]Bitboard
-var KnightAttacks [N_SQUARES]Bitboard
+var rankAttacks map[Bitboard][N_FILES]Bitboard
+var fileAttacks map[Bitboard][N_RANKS]Bitboard
+var posDiagAttacks map[Bitboard][N_RANKS]Bitboard
+var negDiagAttacks map[Bitboard][N_RANKS]Bitboard
+var knightAttacks [N_SQUARES]Bitboard
 
 func SlidingAttacksBB(occupied Bitboard, sq Square, pt PieceType) Bitboard {
 	initAttacks()
@@ -23,27 +23,27 @@ func SlidingAttacksBB(occupied Bitboard, sq Square, pt PieceType) Bitboard {
 		file := sq.File()
 		rankMask := BBWithRank(rank, 0b11111111)
 		occupiedRankBB := occupied & rankMask
-		rtn |= RankAttacks[occupiedRankBB][file-1]
+		rtn |= rankAttacks[occupiedRankBB][file-1]
 
 		fileMask := BBWithFile(file, 0b11111111)
 		occupiedFileBB := occupied & fileMask
-		rtn |= FileAttacks[occupiedFileBB][rank-1]
+		rtn |= fileAttacks[occupiedFileBB][rank-1]
 	}
 	if pt == BISHOP || pt == QUEEN {
 		posDiagMask := BBWithPosDiag(sq.PosDiagIdx(), 0b11111111)
 		occupiedPosDiagBB := occupied & posDiagMask
-		rtn |= PosDiagAttacks[occupiedPosDiagBB][rank-1]
+		rtn |= posDiagAttacks[occupiedPosDiagBB][rank-1]
 
 		negDiagMask := BBWithNegDiag(sq.NegDiagIdx(), 0b11111111)
 		occupiedNegDiagBB := occupied & negDiagMask
-		rtn |= NegDiagAttacks[occupiedNegDiagBB][rank-1]
+		rtn |= negDiagAttacks[occupiedNegDiagBB][rank-1]
 	}
 	return rtn
 }
 
 func KnightAttacksBB(sq Square) Bitboard {
 	initAttacks()
-	return KnightAttacks[sq]
+	return knightAttacks[sq]
 }
 
 var isInitted = false
@@ -61,7 +61,7 @@ func initAttacks() {
 }
 
 func initRankAttacks() {
-	RankAttacks = make(map[Bitboard][N_FILES]Bitboard)
+	rankAttacks = make(map[Bitboard][N_FILES]Bitboard)
 	for _, occupiedBB := range genRankOccupiedBBs() {
 		rank := occupiedBB.FirstSq().Rank()
 		attackBBs := [N_FILES]Bitboard{}
@@ -88,12 +88,12 @@ func initRankAttacks() {
 			}
 			attackBBs[file-1] = attackBB
 		}
-		RankAttacks[occupiedBB] = attackBBs
+		rankAttacks[occupiedBB] = attackBBs
 	}
 }
 
 func initFileAttacks() {
-	FileAttacks = make(map[Bitboard][N_RANKS]Bitboard)
+	fileAttacks = make(map[Bitboard][N_RANKS]Bitboard)
 	for _, occupiedBB := range genFileOccupiedBBs() {
 		file := occupiedBB.FirstSq().File()
 		attackBBs := [N_RANKS]Bitboard{}
@@ -120,12 +120,12 @@ func initFileAttacks() {
 			}
 			attackBBs[rank-1] = attackBB
 		}
-		FileAttacks[occupiedBB] = attackBBs
+		fileAttacks[occupiedBB] = attackBBs
 	}
 }
 
 func initPosDiagAttacks() {
-	PosDiagAttacks = make(map[Bitboard][N_RANKS]Bitboard)
+	posDiagAttacks = make(map[Bitboard][N_RANKS]Bitboard)
 	for _, occupiedBB := range genPosDiagOccupiedBBs() {
 		diagIdx := occupiedBB.FirstSq().PosDiagIdx()
 		diagMask := BBWithPosDiag(diagIdx, 0b11111111)
@@ -158,12 +158,12 @@ func initPosDiagAttacks() {
 			}
 			attackBBs[rank-1] = attackBB
 		}
-		PosDiagAttacks[occupiedBB] = attackBBs
+		posDiagAttacks[occupiedBB] = attackBBs
 	}
 }
 
 func initNegDiagAttacks() {
-	NegDiagAttacks = make(map[Bitboard][N_RANKS]Bitboard)
+	negDiagAttacks = make(map[Bitboard][N_RANKS]Bitboard)
 	for _, occupiedBB := range genNegDiagOccupiedBBs() {
 		diagIdx := occupiedBB.FirstSq().NegDiagIdx()
 		diagMask := BBWithNegDiag(diagIdx, 0b11111111)
@@ -196,12 +196,12 @@ func initNegDiagAttacks() {
 			}
 			attackBBs[rank-1] = attackBB
 		}
-		NegDiagAttacks[occupiedBB] = attackBBs
+		negDiagAttacks[occupiedBB] = attackBBs
 	}
 }
 
 func initKnightAttacks() {
-	KnightAttacks = [N_SQUARES]Bitboard{}
+	knightAttacks = [N_SQUARES]Bitboard{}
 	for rank := 1; rank < 9; rank++ {
 		for file := 1; file < 9; file++ {
 			sq := SqFromCoords(rank, file)
@@ -230,7 +230,7 @@ func initKnightAttacks() {
 			if file < 8 && rank > 2 {
 				bb |= BBWithSquares(sq - 15)
 			}
-			KnightAttacks[sq] = bb
+			knightAttacks[sq] = bb
 		}
 	}
 }
