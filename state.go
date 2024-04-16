@@ -50,13 +50,13 @@ func StateFromFEN(fen string) (*State, error) {
 	if castleRightsSpecifier != "-" {
 		for _, castleRightChar := range []byte(castleRightsSpecifier) {
 			if castleRightChar == 'K' {
-				state.CastleRights[W_CAN_CASTLE_KINGSIDE] = true
+				state.CastleRights[W_CASTLE_KINGSIDE_RIGHT] = true
 			} else if castleRightChar == 'Q' {
-				state.CastleRights[W_CAN_CASTLE_QUEENSIDE] = true
+				state.CastleRights[W_CASTLE_QUEENSIDE_RIGHT] = true
 			} else if castleRightChar == 'k' {
-				state.CastleRights[B_CAN_CASTLE_KINGSIDE] = true
+				state.CastleRights[B_CASTLE_KINGSIDE_RIGHT] = true
 			} else if castleRightChar == 'q' {
-				state.CastleRights[B_CAN_CASTLE_QUEENSIDE] = true
+				state.CastleRights[B_CASTLE_QUEENSIDE_RIGHT] = true
 			} else {
 				return nil, fmt.Errorf("could not parse castle rights, unknown char %c in %s", castleRightChar, castleRightsSpecifier)
 			}
@@ -97,19 +97,19 @@ func (s *State) FEN() string {
 	rtnBuilder.WriteByte(' ')
 
 	var anyCastleRights bool
-	if s.CastleRights[W_CAN_CASTLE_KINGSIDE] {
+	if s.CastleRights[W_CASTLE_KINGSIDE_RIGHT] {
 		rtnBuilder.WriteByte('K')
 		anyCastleRights = true
 	}
-	if s.CastleRights[W_CAN_CASTLE_QUEENSIDE] {
+	if s.CastleRights[W_CASTLE_QUEENSIDE_RIGHT] {
 		rtnBuilder.WriteByte('Q')
 		anyCastleRights = true
 	}
-	if s.CastleRights[B_CAN_CASTLE_KINGSIDE] {
+	if s.CastleRights[B_CASTLE_KINGSIDE_RIGHT] {
 		rtnBuilder.WriteByte('k')
 		anyCastleRights = true
 	}
-	if s.CastleRights[B_CAN_CASTLE_QUEENSIDE] {
+	if s.CastleRights[B_CASTLE_QUEENSIDE_RIGHT] {
 		rtnBuilder.WriteByte('q')
 		anyCastleRights = true
 	}

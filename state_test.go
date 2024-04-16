@@ -57,8 +57,8 @@ var _ = Describe("State", func() {
 					state, stateErr := main.StateFromFEN(fen)
 					Expect(stateErr).To(Succeed())
 					expCastleRights := [4]bool{}
-					expCastleRights[main.W_CAN_CASTLE_KINGSIDE] = true
-					expCastleRights[main.W_CAN_CASTLE_QUEENSIDE] = true
+					expCastleRights[main.W_CASTLE_KINGSIDE_RIGHT] = true
+					expCastleRights[main.W_CASTLE_QUEENSIDE_RIGHT] = true
 					Expect(state.CastleRights).To(Equal(expCastleRights))
 				})
 			})
