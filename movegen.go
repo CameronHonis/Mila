@@ -2,13 +2,64 @@ package main
 
 import "log"
 
-//func GenLegalMoves(state *State) []Move {
-//
-//}
-//
-//func GenPseudoLegalMoves(state *State) []Move {
-//
-//}
+type LegalMoveIter struct {
+	state  *State
+	pMoves []Move
+	idx    int
+}
+
+func NewLegalMoveIter(state *State) *LegalMoveIter {
+	return &LegalMoveIter{
+		state:  state,
+		pMoves: GenPseudoLegalMoves(state),
+		idx:    0,
+	}
+}
+
+func (iter *LegalMoveIter) Next() (move Move, done bool) {
+	for iter.idx < len(iter.pMoves) {
+		pMove := iter.pMoves[iter.idx]
+		iter.idx++
+
+		if iter.state.Pos.IsLegalMove(pMove) {
+			return pMove, false
+		}
+	}
+	return NULL_MOVE, true
+}
+
+func GenPseudoLegalMoves(state *State) []Move {
+	pos := state.Pos
+	rtn := make([]Move, 0)
+	for rank := 1; rank < 9; rank++ {
+		for file := 1; file < 9; file++ {
+			sq := SqFromCoords(rank, file)
+			piece := pos.pieces[sq]
+			pt := piece.Type()
+			if pt == PAWN {
+				moves := GenPseudoLegalPawnMoves(pos, sq, state.EnPassantSq)
+				rtn = append(rtn, moves...)
+			} else if pt == KING {
+				isWhite := piece.IsWhite()
+				var canCastleKS bool
+				var canCastleQS bool
+				if isWhite {
+					canCastleKS = state.CastleRights[W_CASTLE_KINGSIDE_RIGHT]
+					canCastleQS = state.CastleRights[W_CASTLE_QUEENSIDE_RIGHT]
+				} else {
+					canCastleKS = state.CastleRights[B_CASTLE_KINGSIDE_RIGHT]
+					canCastleQS = state.CastleRights[B_CASTLE_QUEENSIDE_RIGHT]
+				}
+				moves := GenPseudoLegalKingMoves(pos, sq, canCastleKS, canCastleQS)
+				rtn = append(rtn, moves...)
+			} else {
+				moves := GenPseudoLegalNimblePieceMoves(pos, sq)
+				rtn = append(rtn, moves...)
+			}
+		}
+	}
+	return rtn
+}
 
 func GenPseudoLegalPawnMoves(pos *Position, sq, epSq Square) []Move {
 	piece := pos.pieces[sq]
