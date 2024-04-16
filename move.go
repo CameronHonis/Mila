@@ -83,10 +83,6 @@ func NewPromoteMoves(startSq Square, endSq Square) []Move {
 	}
 }
 
-func NullMove() Move {
-	return 0
-}
-
 func (m Move) StartSq() Square {
 	return Square(m >> 10)
 }
@@ -106,3 +102,5 @@ func (m Move) Type() MoveType {
 func (m Move) IsNull() bool {
 	return m == 0
 }
+
+const NULL_MOVE = Move(0)
