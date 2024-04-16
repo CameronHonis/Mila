@@ -64,6 +64,41 @@ func PieceFromChar(char byte) Piece {
 	}
 }
 
+func NewPiece(pt PieceType, color Color) Piece {
+	if pt == EMPTY_PIECE_TYPE {
+		return EMPTY
+	}
+	if color == WHITE {
+		if pt == PAWN {
+			return W_PAWN
+		} else if pt == KNIGHT {
+			return W_KNIGHT
+		} else if pt == BISHOP {
+			return W_BISHOP
+		} else if pt == ROOK {
+			return W_ROOK
+		} else if pt == QUEEN {
+			return W_QUEEN
+		} else {
+			return W_KING
+		}
+	} else {
+		if pt == PAWN {
+			return B_PAWN
+		} else if pt == KNIGHT {
+			return B_KNIGHT
+		} else if pt == BISHOP {
+			return B_BISHOP
+		} else if pt == ROOK {
+			return B_ROOK
+		} else if pt == QUEEN {
+			return B_QUEEN
+		} else {
+			return B_KING
+		}
+	}
+}
+
 func (p Piece) IsWhite() bool {
 	return p >= W_PAWN && p <= W_KING
 }
@@ -169,10 +204,10 @@ const (
 type CastleRight uint8
 
 const (
-	W_CAN_CASTLE_KINGSIDE CastleRight = iota
-	W_CAN_CASTLE_QUEENSIDE
-	B_CAN_CASTLE_KINGSIDE
-	B_CAN_CASTLE_QUEENSIDE
+	W_CASTLE_KINGSIDE_RIGHT CastleRight = iota
+	W_CASTLE_QUEENSIDE_RIGHT
+	B_CASTLE_KINGSIDE_RIGHT
+	B_CASTLE_QUEENSIDE_RIGHT
 	N_CASTLE_RIGHTS
 )
 
