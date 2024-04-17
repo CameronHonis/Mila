@@ -5,32 +5,32 @@ import (
 	"math/rand"
 )
 
-type zobristLookups struct {
-	PieceNums                  [8][8][13]int64 // 6 white pieces + 6 black pieces + 1 en passant type
-	WhiteTurnNum               int64
-	BlackTurnNum               int64
-	CanWhiteKingsideCastleNum  int64
-	CanBlackKingsdieCastleNum  int64
-	CanWhiteQueensideCastleNum int64
-	CanBlackQueensideCastleNum int64
+type zobristLookupsLegacy struct {
+	PieceKeys                  [N_SQUARES][N_PIECES]uint64 // 6 white pieces + 6 black pieces + 1 en passant type
+	EpSqKeys                   [N_SQUARES]uint64
+	WhiteTurnKey               uint64
+	BlackTurnKey               uint64
+	CanWhiteKingsideCastleKey  uint64
+	CanBlackKingsdieCastleKey  uint64
+	CanWhiteQueensideCastleKey uint64
+	CanBlackQueensideCastleKey uint64
 }
 
-func newZobristLookups() *zobristLookups {
+func newZobristLookups() *zobristLookupsLegacy {
 	rand.Seed(0b101010101010101010101010101010101010101010101010101010101010101)
-	zLookups := &zobristLookups{}
-	for r := 0; r < 8; r++ {
-		for c := 0; c < 8; c++ {
-			for t := 0; t < 13; t++ {
-				zLookups.PieceNums[r][c][t] = randInt64()
-			}
+	zLookups := &zobristLookupsLegacy{}
+	for sq := Square(0); sq < N_SQUARES; sq++ {
+		for piece := Piece(0); piece < N_PIECES; piece++ {
+			zLookups.PieceKeys[sq][piece] = rand.Uint64()
 		}
+		zLookups.EpSqKeys[sq] = rand.Uint64()
 	}
-	zLookups.WhiteTurnNum = randInt64()
-	zLookups.BlackTurnNum = randInt64()
-	zLookups.CanWhiteKingsideCastleNum = randInt64()
-	zLookups.CanBlackKingsdieCastleNum = randInt64()
-	zLookups.CanWhiteQueensideCastleNum = randInt64()
-	zLookups.CanBlackQueensideCastleNum = randInt64()
+	zLookups.WhiteTurnKey = rand.Uint64()
+	zLookups.BlackTurnKey = rand.Uint64()
+	zLookups.CanWhiteKingsideCastleKey = rand.Uint64()
+	zLookups.CanBlackKingsdieCastleKey = rand.Uint64()
+	zLookups.CanWhiteQueensideCastleKey = rand.Uint64()
+	zLookups.CanBlackQueensideCastleKey = rand.Uint64()
 	return zLookups
 }
 
@@ -40,39 +40,41 @@ func randInt64() int64 {
 
 var lookups = newZobristLookups()
 
-func ZobristHash(pos *chess.Board) int64 {
-	var hash int64
-	for r := 0; r < 8; r++ {
-		for c := 0; c < 8; c++ {
-			pieceType := pos.Pieces[r][c]
-			if pieceType == chess.EMPTY {
-				continue
-			}
-			pieceIdx := pos.Pieces[r][c] - 1
-			hash ^= lookups.PieceNums[r][c][pieceIdx]
-		}
+func ZobristHashOnLegacyBoard(pos *chess.Board) uint64 {
+	var hash uint64
+	for sq := Square(0); sq < N_SQUARES; sq++ {
+		piece := pos.Pieces[sq.Rank()-1][sq.File()-1]
+		hash ^= lookups.PieceKeys[sq][piece]
 	}
 	if pos.OptEnPassantSquare != nil {
-		r := pos.OptEnPassantSquare.Rank - 1
-		c := pos.OptEnPassantSquare.File - 1
-		hash ^= lookups.PieceNums[r][c][12]
+		epSq := SqFromCoords(int(pos.OptEnPassantSquare.Rank), int(pos.OptEnPassantSquare.File))
+		hash ^= lookups.EpSqKeys[epSq]
 	}
 	if pos.CanWhiteCastleKingside {
-		hash ^= lookups.CanWhiteKingsideCastleNum
+		hash ^= lookups.CanWhiteKingsideCastleKey
 	}
 	if pos.CanWhiteCastleQueenside {
-		hash ^= lookups.CanWhiteQueensideCastleNum
+		hash ^= lookups.CanWhiteQueensideCastleKey
 	}
 	if pos.CanBlackCastleKingside {
-		hash ^= lookups.CanBlackKingsdieCastleNum
+		hash ^= lookups.CanBlackKingsdieCastleKey
 	}
 	if pos.CanBlackCastleQueenside {
-		hash ^= lookups.CanBlackQueensideCastleNum
+		hash ^= lookups.CanBlackQueensideCastleKey
 	}
 	if pos.IsWhiteTurn {
-		hash ^= lookups.WhiteTurnNum
+		hash ^= lookups.WhiteTurnKey
 	} else {
-		hash ^= lookups.BlackTurnNum
+		hash ^= lookups.BlackTurnKey
 	}
 	return hash
 }
+
+//type ZHash uint64
+//
+//func NewZHash(pos *Position) {
+//	var hash ZHash
+//	for sq := Square(0); sq < N_SQUARES; sq++ {
+//
+//	}
+//}

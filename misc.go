@@ -227,8 +227,6 @@ const (
 	N_COLORS
 )
 
-type ZHash uint64
-
 type Ply uint
 
 func PlyFromNMoves(nMoves uint, isWhiteTurn bool) Ply {

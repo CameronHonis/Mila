@@ -6,17 +6,17 @@ import (
 )
 
 type TranspTable struct {
-	entryByHash map[int64]*TTEntry
+	entryByHash map[uint64]*TTEntry
 	mu          sync.Mutex
 }
 
 func NewTranspTable() *TranspTable {
 	return &TranspTable{
-		entryByHash: make(map[int64]*TTEntry),
+		entryByHash: make(map[uint64]*TTEntry),
 	}
 }
 
-func (tt *TranspTable) PostResults(hash int64, score float64, move *chess.Move, depth int) {
+func (tt *TranspTable) PostResults(hash uint64, score float64, move *chess.Move, depth int) {
 	tt.mu.Lock()
 	defer tt.mu.Unlock()
 	prevEntry := tt.entryByHash[hash]
@@ -29,7 +29,7 @@ func (tt *TranspTable) PostResults(hash int64, score float64, move *chess.Move, 
 	}
 }
 
-func (tt *TranspTable) GetEntry(hash int64) (entry *TTEntry, exists bool) {
+func (tt *TranspTable) GetEntry(hash uint64) (entry *TTEntry, exists bool) {
 	tt.mu.Lock()
 	defer tt.mu.Unlock()
 	var ok bool

@@ -142,7 +142,7 @@ func (s *Search) searchToDepth(pos *chess.Board, depth int, alpha float64, beta 
 		return EvalPos(pos)
 	}
 
-	posHash := ZobristHash(pos)
+	posHash := ZobristHashOnLegacyBoard(pos)
 	var anticipatedMove *chess.Move
 	if TRANSP_TABLE_LOOKUPS_ENABLED {
 		if ttEntry, _ := s.TT.GetEntry(posHash); ttEntry != nil {
@@ -219,7 +219,7 @@ func (s *Search) BestLine(pos *chess.Board) []*chess.Move {
 	rtn := make([]*chess.Move, 0)
 	var ttEntry *TTEntry
 	for {
-		ttEntry, _ = s.TT.GetEntry(ZobristHash(pos))
+		ttEntry, _ = s.TT.GetEntry(ZobristHashOnLegacyBoard(pos))
 		if ttEntry == nil {
 			break
 		}

@@ -10,8 +10,8 @@ import (
 	"strings"
 )
 
-func fullSearchToDepth(pos *chess.Board, depth int, fensByHash map[int64]*set.Set[string]) int {
-	hash := main.ZobristHash(pos)
+func fullSearchToDepth(pos *chess.Board, depth int, fensByHash map[uint64]*set.Set[string]) int {
+	hash := main.ZobristHashOnLegacyBoard(pos)
 	trimmedFen := strings.Join(strings.Split(pos.ToFEN(), " ")[:4], " ")
 	if _, ok := fensByHash[hash]; !ok {
 		fensByHash[hash] = set.EmptySet[string]()
@@ -30,9 +30,9 @@ func fullSearchToDepth(pos *chess.Board, depth int, fensByHash map[int64]*set.Se
 	return nodeCnt
 }
 
-var _ = PDescribe("Zobrist", func() {
+var _ = Describe("ZobristHashOnLegacyBoard", func() {
 	It("returns unique hashes for all boards depth 4 from init board", func() {
-		fensByHash := make(map[int64]*set.Set[string])
+		fensByHash := make(map[uint64]*set.Set[string])
 		fullSearchToDepth(chess.GetInitBoard(), 4, fensByHash)
 		for hash, fens := range fensByHash {
 			if fens.Size() > 1 {
@@ -40,4 +40,8 @@ var _ = PDescribe("Zobrist", func() {
 			}
 		}
 	})
+})
+
+var _ = Describe("ZobristHash", func() {
+
 })
