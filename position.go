@@ -29,12 +29,13 @@ type Position struct {
 	ply            Ply
 	result         Result
 	isWhiteTurn    bool
+	hash           ZHash
 
 	frozenPos *FrozenPos
 }
 
 func InitPos() *Position {
-	return &Position{
+	pos := &Position{
 		pieces: [N_SQUARES]Piece{
 			W_ROOK, W_KNIGHT, W_BISHOP, W_QUEEN, W_KING, W_BISHOP, W_KNIGHT, W_ROOK,
 			W_PAWN, W_PAWN, W_PAWN, W_PAWN, W_PAWN, W_PAWN, W_PAWN, W_PAWN,
@@ -73,6 +74,8 @@ func InitPos() *Position {
 			CastleRights: [N_CASTLE_RIGHTS]bool{true, true, true, true},
 		},
 	}
+	pos.hash = NewZHash(pos)
+	return pos
 }
 
 func FromFEN(fen string) (*Position, error) {
@@ -172,6 +175,8 @@ func FromFEN(fen string) (*Position, error) {
 	} else {
 		pos.ply = PlyFromNMoves(uint(nMoves), pos.isWhiteTurn)
 	}
+
+	pos.hash = NewZHash(pos)
 
 	return pos, nil
 }
