@@ -6,45 +6,44 @@ import (
 )
 
 type zobristLookupsLegacy struct {
-	PieceKeys                  [N_SQUARES][N_PIECES]uint64 // 6 white pieces + 6 black pieces + 1 en passant type
-	EpSqKeys                   [N_SQUARES]uint64
-	WhiteTurnKey               uint64
-	BlackTurnKey               uint64
-	CanWhiteKingsideCastleKey  uint64
-	CanBlackKingsdieCastleKey  uint64
-	CanWhiteQueensideCastleKey uint64
-	CanBlackQueensideCastleKey uint64
+	PieceKeys                  [N_SQUARES][N_PIECES - 1]ZHash // 6 white pieces + 6 black pieces + 1 en passant type
+	EpSqKeys                   [N_SQUARES]ZHash
+	WhiteTurnKey               ZHash
+	BlackTurnKey               ZHash
+	CanWhiteKingsideCastleKey  ZHash
+	CanBlackKingsideCastleKey  ZHash
+	CanWhiteQueensideCastleKey ZHash
+	CanBlackQueensideCastleKey ZHash
 }
 
 func newZobristLookups() *zobristLookupsLegacy {
 	rand.Seed(0b101010101010101010101010101010101010101010101010101010101010101)
 	zLookups := &zobristLookupsLegacy{}
 	for sq := Square(0); sq < N_SQUARES; sq++ {
-		for piece := Piece(0); piece < N_PIECES; piece++ {
-			zLookups.PieceKeys[sq][piece] = rand.Uint64()
+		for piece := Piece(0); piece < N_PIECES-1; piece++ {
+			zLookups.PieceKeys[sq][piece] = ZHash(rand.Uint64())
 		}
-		zLookups.EpSqKeys[sq] = rand.Uint64()
+		zLookups.EpSqKeys[sq] = ZHash(rand.Uint64())
 	}
-	zLookups.WhiteTurnKey = rand.Uint64()
-	zLookups.BlackTurnKey = rand.Uint64()
-	zLookups.CanWhiteKingsideCastleKey = rand.Uint64()
-	zLookups.CanBlackKingsdieCastleKey = rand.Uint64()
-	zLookups.CanWhiteQueensideCastleKey = rand.Uint64()
-	zLookups.CanBlackQueensideCastleKey = rand.Uint64()
+	zLookups.WhiteTurnKey = ZHash(rand.Uint64())
+	zLookups.BlackTurnKey = ZHash(rand.Uint64())
+	zLookups.CanWhiteKingsideCastleKey = ZHash(rand.Uint64())
+	zLookups.CanBlackKingsideCastleKey = ZHash(rand.Uint64())
+	zLookups.CanWhiteQueensideCastleKey = ZHash(rand.Uint64())
+	zLookups.CanBlackQueensideCastleKey = ZHash(rand.Uint64())
 	return zLookups
-}
-
-func randInt64() int64 {
-	return rand.Int63() | (int64(rand.Intn(2)) << 63)
 }
 
 var lookups = newZobristLookups()
 
 func ZobristHashOnLegacyBoard(pos *chess.Board) uint64 {
-	var hash uint64
-	for sq := Square(0); sq < N_SQUARES; sq++ {
+	var hash ZHash
+	for sq := SQ_A1; sq < N_SQUARES; sq++ {
 		piece := pos.Pieces[sq.Rank()-1][sq.File()-1]
-		hash ^= lookups.PieceKeys[sq][piece]
+		if piece == chess.EMPTY {
+			continue
+		}
+		hash ^= lookups.PieceKeys[sq][piece-1]
 	}
 	if pos.OptEnPassantSquare != nil {
 		epSq := SqFromCoords(int(pos.OptEnPassantSquare.Rank), int(pos.OptEnPassantSquare.File))
@@ -57,7 +56,7 @@ func ZobristHashOnLegacyBoard(pos *chess.Board) uint64 {
 		hash ^= lookups.CanWhiteQueensideCastleKey
 	}
 	if pos.CanBlackCastleKingside {
-		hash ^= lookups.CanBlackKingsdieCastleKey
+		hash ^= lookups.CanBlackKingsideCastleKey
 	}
 	if pos.CanBlackCastleQueenside {
 		hash ^= lookups.CanBlackQueensideCastleKey
@@ -67,14 +66,75 @@ func ZobristHashOnLegacyBoard(pos *chess.Board) uint64 {
 	} else {
 		hash ^= lookups.BlackTurnKey
 	}
+	return uint64(hash)
+}
+
+type ZHash uint64
+
+func NewZHash(pos *Position) ZHash {
+	var hash ZHash
+	for sq := Square(0); sq < N_SQUARES; sq++ {
+		piece := pos.pieces[sq]
+		if piece == EMPTY {
+			continue
+		}
+		hash ^= lookups.PieceKeys[sq][piece-1]
+	}
+	fPos := pos.frozenPos
+	if fPos.EnPassantSq != NULL_SQ {
+		hash ^= lookups.EpSqKeys[fPos.EnPassantSq]
+	}
+	if fPos.CastleRights[W_CASTLE_KINGSIDE_RIGHT] {
+		hash ^= lookups.CanWhiteKingsideCastleKey
+	}
+	if fPos.CastleRights[W_CASTLE_QUEENSIDE_RIGHT] {
+		hash ^= lookups.CanWhiteQueensideCastleKey
+	}
+	if fPos.CastleRights[B_CASTLE_KINGSIDE_RIGHT] {
+		hash ^= lookups.CanBlackKingsideCastleKey
+	}
+	if fPos.CastleRights[B_CASTLE_QUEENSIDE_RIGHT] {
+		hash ^= lookups.CanBlackQueensideCastleKey
+	}
+	if pos.isWhiteTurn {
+		hash ^= lookups.WhiteTurnKey
+	} else {
+		hash ^= lookups.BlackTurnKey
+	}
 	return hash
 }
 
-//type ZHash uint64
-//
-//func NewZHash(pos *Position) {
-//	var hash ZHash
-//	for sq := Square(0); sq < N_SQUARES; sq++ {
-//
-//	}
-//}
+func (zh ZHash) TogglePieceOnSq(prevPiece, piece Piece, sq Square) {
+	if prevPiece != EMPTY {
+		zh ^= lookups.PieceKeys[sq][prevPiece]
+	}
+	if piece != EMPTY {
+		zh ^= lookups.PieceKeys[sq][piece]
+	}
+}
+
+func (zh ZHash) UpdateEnPassantSq(prevEpSq, epSq Square) {
+	if prevEpSq != NULL_SQ {
+		zh ^= lookups.EpSqKeys[prevEpSq]
+	}
+	if epSq != NULL_SQ {
+		zh ^= lookups.EpSqKeys[epSq]
+	}
+}
+
+func (zh ZHash) RemoveCastleRight(castleRight CastleRight) {
+	if castleRight == W_CASTLE_KINGSIDE_RIGHT {
+		zh ^= lookups.CanWhiteKingsideCastleKey
+	} else if castleRight == W_CASTLE_QUEENSIDE_RIGHT {
+		zh ^= lookups.CanWhiteQueensideCastleKey
+	} else if castleRight == B_CASTLE_KINGSIDE_RIGHT {
+		zh ^= lookups.CanBlackKingsideCastleKey
+	} else if castleRight == B_CASTLE_QUEENSIDE_RIGHT {
+		zh ^= lookups.CanBlackQueensideCastleKey
+	}
+}
+
+func (zh ZHash) UpdateTurn() {
+	zh ^= lookups.WhiteTurnKey
+	zh ^= lookups.BlackTurnKey
+}
