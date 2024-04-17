@@ -228,3 +228,17 @@ const (
 )
 
 type ZHash uint64
+
+type Ply uint
+
+func PlyFromNMoves(nMoves uint, isWhiteTurn bool) Ply {
+	if isWhiteTurn {
+		return Ply(nMoves-1) * 2
+	} else {
+		return Ply(nMoves)*2 - 1
+	}
+}
+
+func NMovesFromPly(ply Ply) uint {
+	return uint(ply+2) / 2
+}
