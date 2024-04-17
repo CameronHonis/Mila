@@ -40,7 +40,7 @@ func StateFromFEN(fen string) (*State, error) {
 		return nil, fmt.Errorf("invalid number of fen segments %d, expected 6", len(fenSegs))
 	}
 
-	if pos, posErr := PosFromFEN(fen); posErr != nil {
+	if pos, posErr := FromFEN(fen); posErr != nil {
 		return nil, posErr
 	} else {
 		state.Pos = pos
@@ -137,7 +137,3 @@ func (s *State) String() string {
 	shortFen := strings.Join(fenPieces[1:], " ")
 	return fmt.Sprintf("%s\n%s", shortFen, s.Pos)
 }
-
-//func (s *State) LegalMoves() []Move {
-//
-//}

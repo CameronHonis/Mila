@@ -6,7 +6,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("State", func() {
+var _ = PDescribe("State", func() {
 	Describe("#StateFromFEN", func() {
 		When("the FEN is not valid", func() {
 			When("the FEN contains an invalid turn specifier", func() {

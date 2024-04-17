@@ -3,14 +3,34 @@ package main
 import (
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 )
+
+// FrozenPos encapsulates the bits about a position that cannot be re-generated
+// after making + unmaking a move. This struct is meant to be provided alongside
+// a move to unmake a move and restore a position.
+type FrozenPos struct {
+	EnPassantSq  Square
+	Rule50       Ply
+	CastleRights [N_CASTLE_RIGHTS]bool
+}
+
+func (fp *FrozenPos) Copy() *FrozenPos {
+	fpCopy := *fp
+	return &fpCopy
+}
 
 type Position struct {
 	pieces         [N_SQUARES]Piece
 	pieceBitboards [N_PIECES]Bitboard
 	colorBitboards [N_COLORS]Bitboard
+	repetitions    map[ZHash]uint8
+	ply            Ply
+	result         Result
 	isWhiteTurn    bool
+
+	frozenPos *FrozenPos
 }
 
 func InitPos() *Position {
@@ -44,12 +64,22 @@ func InitPos() *Position {
 			0b00000000_00000000_00000000_00000000_00000000_00000000_11111111_11111111,
 			0b11111111_11111111_00000000_00000000_00000000_00000000_00000000_00000000,
 		},
+		repetitions: make(map[ZHash]uint8),
+		ply:         0,
+		result:      RESULT_IN_PROGRESS,
 		isWhiteTurn: true,
+		frozenPos: &FrozenPos{
+			EnPassantSq:  NULL_SQ,
+			CastleRights: [N_CASTLE_RIGHTS]bool{true, true, true, true},
+		},
 	}
 }
 
-func PosFromFEN(fen string) (*Position, error) {
-	var pos = &Position{}
+func FromFEN(fen string) (*Position, error) {
+	var pos = &Position{
+		repetitions: make(map[ZHash]uint8),
+		frozenPos:   &FrozenPos{},
+	}
 	fenSegs := strings.Split(fen, " ")
 	if len(fenSegs) != 6 {
 		return nil, fmt.Errorf("invalid number of fen segments %d, expected 6", len(fenSegs))
@@ -101,11 +131,58 @@ func PosFromFEN(fen string) (*Position, error) {
 		return nil, fmt.Errorf("unexpected length for turn specifier %s in fen %s", fenSegs[1], fen)
 	}
 
+	castleRightsSpecifier := fenSegs[2]
+	if castleRightsSpecifier != "-" {
+		for _, castleRightChar := range []byte(castleRightsSpecifier) {
+			if castleRightChar == 'K' {
+				pos.frozenPos.CastleRights[W_CASTLE_KINGSIDE_RIGHT] = true
+			} else if castleRightChar == 'Q' {
+				pos.frozenPos.CastleRights[W_CASTLE_QUEENSIDE_RIGHT] = true
+			} else if castleRightChar == 'k' {
+				pos.frozenPos.CastleRights[B_CASTLE_KINGSIDE_RIGHT] = true
+			} else if castleRightChar == 'q' {
+				pos.frozenPos.CastleRights[B_CASTLE_QUEENSIDE_RIGHT] = true
+			} else {
+				return nil, fmt.Errorf("could not parse castle rights, unknown char %c in %s", castleRightChar, castleRightsSpecifier)
+			}
+		}
+	}
+
+	epSpecifier := fenSegs[3]
+	if epSpecifier == "-" {
+		pos.frozenPos.EnPassantSq = NULL_SQ
+	} else {
+		epSq, epSqErr := SqFromAlg(epSpecifier)
+		if epSqErr != nil {
+			return nil, fmt.Errorf("could not parse en passant square in fen %s: %s", fen, epSqErr)
+		}
+		pos.frozenPos.EnPassantSq = epSq
+	}
+
+	halfmovesSpecifier := fenSegs[4]
+	if halfmoves, halfmoveErr := strconv.Atoi(halfmovesSpecifier); halfmoveErr != nil {
+		return nil, fmt.Errorf("could not parse halfmoves: %s", halfmoveErr)
+	} else {
+		pos.frozenPos.Rule50 = Ply(halfmoves)
+	}
+
+	movesSpecifier := fenSegs[5]
+	if nMoves, nMovesErr := strconv.Atoi(movesSpecifier); nMovesErr != nil {
+		return nil, fmt.Errorf("could not parse number of moves: %s", nMovesErr)
+	} else {
+		pos.ply = PlyFromNMoves(uint(nMoves), pos.isWhiteTurn)
+	}
+
 	return pos, nil
 }
 
 func (p *Position) String() string {
 	var rtnBuilder = strings.Builder{}
+	fenPieces := strings.Split(p.FEN(), " ")
+	shortFen := strings.Join(fenPieces[1:], " ")
+	rtnBuilder.WriteString(shortFen)
+	rtnBuilder.WriteByte('\n')
+
 	for rank := 8; rank > 0; rank-- {
 		rtnBuilder.WriteString(fmt.Sprintf("%d ", rank))
 		for file := 1; file < 9; file++ {
@@ -170,14 +247,45 @@ func (p *Position) FEN() string {
 	} else {
 		rtnBuilder.WriteByte('b')
 	}
+	rtnBuilder.WriteByte(' ')
+
+	var anyCastleRights bool
+	if p.frozenPos.CastleRights[W_CASTLE_KINGSIDE_RIGHT] {
+		rtnBuilder.WriteByte('K')
+		anyCastleRights = true
+	}
+	if p.frozenPos.CastleRights[W_CASTLE_QUEENSIDE_RIGHT] {
+		rtnBuilder.WriteByte('Q')
+		anyCastleRights = true
+	}
+	if p.frozenPos.CastleRights[B_CASTLE_KINGSIDE_RIGHT] {
+		rtnBuilder.WriteByte('k')
+		anyCastleRights = true
+	}
+	if p.frozenPos.CastleRights[B_CASTLE_QUEENSIDE_RIGHT] {
+		rtnBuilder.WriteByte('q')
+		anyCastleRights = true
+	}
+	if !anyCastleRights {
+		rtnBuilder.WriteByte('-')
+	}
+	rtnBuilder.WriteByte(' ')
+
+	if p.frozenPos.EnPassantSq.IsNull() {
+		rtnBuilder.WriteByte('-')
+	} else {
+		rtnBuilder.WriteString(p.frozenPos.EnPassantSq.String())
+	}
+	rtnBuilder.WriteByte(' ')
+
+	rtnBuilder.WriteString(strconv.Itoa(int(p.frozenPos.Rule50)))
+	rtnBuilder.WriteByte(' ')
+
+	rtnBuilder.WriteString(strconv.Itoa(int(NMovesFromPly(p.ply))))
 	return rtnBuilder.String()
 }
 
 func (p *Position) OccupiedBB() Bitboard {
-	// TODO: evaluate the speed of this method in the broader context of search speed
-	//		 relative to maintaining an updated Position.occupied field on make/unmake
-	//		 move.
-
 	var rtn Bitboard
 	for colorIdx, colorBB := range p.colorBitboards {
 		if colorIdx == 0 {
@@ -228,8 +336,8 @@ func (p *Position) IsLegalMove(pMove Move) bool {
 			return true
 		}
 
-		capturedPiece := p.makeMove(pMove)
-		defer p.unmakeMove(pMove, capturedPiece)
+		capturedPiece := p.MakeMove(pMove)
+		defer p.UnmakeMove(pMove, capturedPiece)
 
 		kingSq = p.pieceBitboards[NewPiece(KING, selfColor)].FirstSq()
 		return p.isSquareAttacked(oppColor, kingSq)
@@ -238,7 +346,7 @@ func (p *Position) IsLegalMove(pMove Move) bool {
 
 // MakeMove is a cheap way to execute a move on the piece arrangement only.
 // To make a move during search, State.MakeMove should instead be used.
-func (p *Position) makeMove(move Move) (capturedPiece Piece) {
+func (p *Position) MakeMove(move Move) (capturedPiece Piece) {
 	start := move.StartSq()
 	end := move.EndSq()
 	startMask := BBWithSquares(start)
@@ -293,7 +401,7 @@ func (p *Position) makeMove(move Move) (capturedPiece Piece) {
 	return
 }
 
-func (p *Position) unmakeMove(move Move, capturedPiece Piece) {
+func (p *Position) UnmakeMove(move Move, capturedPiece Piece) {
 	start := move.StartSq()
 	end := move.EndSq()
 	startMask := BBWithSquares(start)

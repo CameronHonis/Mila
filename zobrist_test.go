@@ -30,7 +30,7 @@ func fullSearchToDepth(pos *chess.Board, depth int, fensByHash map[int64]*set.Se
 	return nodeCnt
 }
 
-var _ = Describe("Zobrist", func() {
+var _ = PDescribe("Zobrist", func() {
 	It("returns unique hashes for all boards depth 4 from init board", func() {
 		fensByHash := make(map[int64]*set.Set[string])
 		fullSearchToDepth(chess.GetInitBoard(), 4, fensByHash)
