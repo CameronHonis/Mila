@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"strings"
 )
 
@@ -69,7 +70,7 @@ func PosFromFEN(fen string) (*Position, error) {
 			if fenPiece >= '1' && fenPiece <= '8' {
 				for i := 0; i < int(fenPiece-'0'); i++ {
 					sq := SqFromCoords(rank, file)
-					pos.pieceBitboards[EMPTY] |= BBWithHighBitsAt(int(sq))
+					pos.pieceBitboards[EMPTY] |= BBWithSquares(sq)
 					file++
 				}
 				continue
@@ -78,11 +79,11 @@ func PosFromFEN(fen string) (*Position, error) {
 			sq := SqFromCoords(rank, file)
 			piece := PieceFromChar(fenPiece)
 			pos.pieces[sq] = piece
-			pos.pieceBitboards[piece] |= BBWithHighBitsAt(int(sq))
+			pos.pieceBitboards[piece] |= BBWithSquares(sq)
 			if piece.IsWhite() {
-				pos.colorBitboards[WHITE] |= BBWithHighBitsAt(int(sq))
+				pos.colorBitboards[WHITE] |= BBWithSquares(sq)
 			} else {
-				pos.colorBitboards[BLACK] |= BBWithHighBitsAt(int(sq))
+				pos.colorBitboards[BLACK] |= BBWithSquares(sq)
 			}
 			file++
 		}
@@ -187,6 +188,7 @@ func (p *Position) OccupiedBB() Bitboard {
 	return rtn
 }
 
+// IsLegalMove is intended to filter out only valid pseudo-legal moves.
 func (p *Position) IsLegalMove(pMove Move) bool {
 	piece := p.pieces[pMove.StartSq()]
 	pt := piece.Type()
@@ -226,20 +228,128 @@ func (p *Position) IsLegalMove(pMove Move) bool {
 			return true
 		}
 
-		p.MakeMove(pMove)
-		defer p.UnmakeMove(pMove)
+		capturedPiece := p.makeMove(pMove)
+		defer p.unmakeMove(pMove, capturedPiece)
 
 		kingSq = p.pieceBitboards[NewPiece(KING, selfColor)].FirstSq()
 		return p.isSquareAttacked(oppColor, kingSq)
 	}
 }
 
-func (p *Position) MakeMove(move Move) {
+// MakeMove is a cheap way to execute a move on the piece arrangement only.
+// To make a move during search, State.MakeMove should instead be used.
+func (p *Position) makeMove(move Move) (capturedPiece Piece) {
+	start := move.StartSq()
+	end := move.EndSq()
+	startMask := BBWithSquares(start)
+	endMask := BBWithSquares(end)
 
+	piece := p.pieces[start]
+	capturedPiece = p.pieces[end]
+
+	p.pieces[start] = EMPTY
+	p.pieces[end] = piece
+
+	p.pieceBitboards[piece] ^= startMask | endMask
+	p.pieceBitboards[capturedPiece] ^= endMask
+	p.pieceBitboards[EMPTY] ^= startMask
+
+	p.colorBitboards[NewColor(p.isWhiteTurn)] ^= startMask | endMask
+	if capturedPiece != EMPTY {
+		p.colorBitboards[NewColor(!p.isWhiteTurn)] ^= endMask
+	}
+
+	if move.Type() == CASTLING {
+		endFile := end.File()
+		var rookStartSq Square
+		var rookEndSq Square
+		if endFile == 7 {
+			rookStartSq = end + 1
+			rookEndSq = end - 1
+		} else {
+			rookStartSq = end - 2
+			rookEndSq = end + 1
+		}
+		rookStartMask := BBWithSquares(rookStartSq)
+		rookEndMask := BBWithSquares(rookEndSq)
+
+		rookPiece := p.pieces[rookStartSq]
+		p.pieces[rookStartSq] = EMPTY
+		p.pieces[rookEndSq] = rookPiece
+		p.pieceBitboards[EMPTY] ^= rookStartMask | rookEndMask
+		p.pieceBitboards[rookPiece] ^= rookStartMask | rookEndMask
+		p.colorBitboards[NewColor(p.isWhiteTurn)] ^= rookStartMask | rookEndMask
+	} else if move.Type() == CAPTURES_EN_PASSANT {
+		epSq := SqFromCoords(int(start.Rank()), int(end.File()))
+		capturedPiece = NewPiece(PAWN, NewColor(!p.isWhiteTurn))
+		captureMask := BBWithSquares(epSq)
+		p.pieces[epSq] = EMPTY
+		p.pieceBitboards[capturedPiece] ^= captureMask
+		p.pieceBitboards[EMPTY] ^= captureMask
+		p.colorBitboards[NewColor(!p.isWhiteTurn)] ^= captureMask
+	}
+
+	p.isWhiteTurn = !p.isWhiteTurn
+	return
 }
 
-func (p *Position) UnmakeMove(move Move) {
+func (p *Position) unmakeMove(move Move, capturedPiece Piece) {
+	start := move.StartSq()
+	end := move.EndSq()
+	startMask := BBWithSquares(start)
+	endMask := BBWithSquares(end)
 
+	piece := p.pieces[end]
+
+	p.pieces[start] = piece
+	p.pieces[end] = capturedPiece
+
+	p.pieceBitboards[piece] ^= startMask | endMask
+	p.pieceBitboards[EMPTY] ^= startMask
+	p.colorBitboards[NewColor(!p.isWhiteTurn)] ^= startMask | endMask
+
+	if move.Type() != CAPTURES_EN_PASSANT {
+		p.pieceBitboards[capturedPiece] ^= endMask
+		if capturedPiece != EMPTY {
+			p.colorBitboards[NewColor(p.isWhiteTurn)] ^= endMask
+		}
+	}
+
+	if move.Type() == CASTLING {
+		endFile := end.File()
+		var rookStartSq Square
+		var rookEndSq Square
+		if endFile == 7 {
+			rookStartSq = end + 1
+			rookEndSq = end - 1
+		} else {
+			rookStartSq = end - 2
+			rookEndSq = end + 1
+		}
+		rookStartMask := BBWithSquares(rookStartSq)
+		rookEndMask := BBWithSquares(rookEndSq)
+
+		rookPiece := p.pieces[rookEndSq]
+		p.pieces[rookEndSq] = EMPTY
+		p.pieces[rookStartSq] = rookPiece
+		p.pieceBitboards[EMPTY] ^= rookStartMask | rookEndMask
+		p.pieceBitboards[rookPiece] ^= rookStartMask | rookEndMask
+		p.colorBitboards[NewColor(!p.isWhiteTurn)] ^= rookStartMask | rookEndMask
+	} else if move.Type() == CAPTURES_EN_PASSANT {
+		if DEBUG {
+			if capturedPiece.Type() != PAWN {
+				log.Fatalf("unexpected capture piece %s unmaking en passant move in position", capturedPiece)
+			}
+		}
+		epSq := SqFromCoords(int(start.Rank()), int(end.File()))
+		captureMask := BBWithSquares(epSq)
+		p.pieces[epSq] = capturedPiece
+		p.pieceBitboards[capturedPiece] ^= captureMask
+		p.pieceBitboards[EMPTY] ^= captureMask
+		p.colorBitboards[NewColor(p.isWhiteTurn)] ^= captureMask
+	}
+
+	p.isWhiteTurn = !p.isWhiteTurn
 }
 
 func (p *Position) isSquareAttacked(attackColor Color, sq Square) bool {

@@ -65,7 +65,7 @@ func GenPseudoLegalPawnMoves(pos *Position, sq, epSq Square) []Move {
 	piece := pos.pieces[sq]
 	if DEBUG {
 		if piece.Type() != PAWN {
-			log.Fatalf("cannot generate pawn move for non-pawn piece on %s in pos:\n%s", pos)
+			log.Fatalf("cannot generate pawn move for non-pawn piece on %s in pos:\n%s", sq, pos)
 		}
 	}
 	file := sq.File()
