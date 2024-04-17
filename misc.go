@@ -213,6 +213,14 @@ const (
 
 type Color uint8
 
+func NewColor(isWhite bool) Color {
+	if isWhite {
+		return WHITE
+	} else {
+		return BLACK
+	}
+}
+
 const (
 	WHITE Color = iota
 	BLACK
