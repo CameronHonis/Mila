@@ -383,10 +383,21 @@ func (p *Position) MakeMove(move Move) (captured Piece) {
 
 	p.isWhiteTurn = !p.isWhiteTurn
 	p.hash = p.hash.ToggleTurn()
+
+	if _, ok := p.repetitions[p.hash]; !ok {
+		p.repetitions[p.hash] = 0
+	}
+	p.repetitions[p.hash]++
+
 	return
 }
 
 func (p *Position) UnmakeMove(move Move, fp *FrozenPos, captured Piece) {
+	p.repetitions[p.hash]--
+	if p.repetitions[p.hash] == 0 {
+		delete(p.repetitions, p.hash)
+	}
+
 	if fp.EnPassantSq != p.frozenPos.EnPassantSq {
 		p.hash = p.hash.UpdateEnPassantSq(p.frozenPos.EnPassantSq, fp.EnPassantSq)
 	}

@@ -144,6 +144,10 @@ var _ = Describe("Position", func() {
 				Expect(fp.CastleRights).To(Equal(expCastleRights))
 				Expect(oldFP).ToNot(Equal(fp))
 			})
+			It("adds the new position to the repetitions map", func() {
+				pos.MakeMove(NewNormalMove(SQ_D2, SQ_D4))
+				Expect(pos.repetitions[pos.hash]).To(BeEquivalentTo(1))
+			})
 		})
 		When("the move is castles", func() {
 			It("updates the position pieces", func() {
