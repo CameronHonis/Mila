@@ -136,3 +136,11 @@ func (s Square) NegDiagIdx() uint8 {
 		}
 	}
 }
+
+func (s Square) IsDark() bool {
+	if s.Rank()%2 == 0 {
+		return s.File()%2 == 0
+	} else {
+		return s.File()%2 == 1
+	}
+}
