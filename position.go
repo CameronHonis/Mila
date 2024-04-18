@@ -345,9 +345,8 @@ func (p *Position) IsLegalMove(pMove Move) bool {
 			return true
 		}
 
-		frozenPos := *p.frozenPos
-		capturedPiece := p.MakeMove(pMove)
-		defer p.UnmakeMove(pMove, &frozenPos, capturedPiece)
+		capturedPiece, fPos := p.MakeMove(pMove)
+		defer p.UnmakeMove(pMove, fPos, capturedPiece)
 
 		kingSq = p.pieceBitboards[NewPiece(KING, selfColor)].FirstSq()
 		return p.isSquareAttacked(oppColor, kingSq)
@@ -355,19 +354,19 @@ func (p *Position) IsLegalMove(pMove Move) bool {
 }
 
 // MakeMove expects the inbound move to be filtered by Position.IsLegalMove
-func (p *Position) MakeMove(move Move) (captured Piece) {
+func (p *Position) MakeMove(move Move) (captured Piece, lastFrozenPos *FrozenPos) {
 	mt := move.Type()
 
 	p.ply++
 
-	lastFPos := p.frozenPos
+	lastFrozenPos = p.frozenPos
 	p.updateFrozenPos(move)
 
-	if lastFPos.EnPassantSq != p.frozenPos.EnPassantSq {
-		p.hash = p.hash.UpdateEnPassantSq(lastFPos.EnPassantSq, p.frozenPos.EnPassantSq)
+	if lastFrozenPos.EnPassantSq != p.frozenPos.EnPassantSq {
+		p.hash = p.hash.UpdateEnPassantSq(lastFrozenPos.EnPassantSq, p.frozenPos.EnPassantSq)
 	}
 	for castleRight := W_CASTLE_KINGSIDE_RIGHT; castleRight < N_CASTLE_RIGHTS; castleRight++ {
-		if lastFPos.CastleRights[castleRight] != p.frozenPos.CastleRights[castleRight] {
+		if lastFrozenPos.CastleRights[castleRight] != p.frozenPos.CastleRights[castleRight] {
 			p.hash = p.hash.ToggleCastleRight(castleRight)
 		}
 	}

@@ -195,7 +195,7 @@ var _ = Describe("Position", func() {
 				Expect(pos.hash).ToNot(Equal(prevHash))
 			})
 			It("returns the captured piece", func() {
-				capturedPiece := pos.MakeMove(NewNormalMove(SQ_G2, SQ_B7))
+				capturedPiece, _ := pos.MakeMove(NewNormalMove(SQ_G2, SQ_B7))
 				Expect(capturedPiece).To(Equal(B_BISHOP))
 			})
 			It("updates a copy of frozenPos", func() {
@@ -255,7 +255,7 @@ var _ = Describe("Position", func() {
 				Expect(fp.EnPassantSq).To(Equal(NULL_SQ))
 			})
 			It("returns a black pawn", func() {
-				capturedMove := pos.MakeMove(NewEnPassantMove(SQ_F5, SQ_G6))
+				capturedMove, _ := pos.MakeMove(NewEnPassantMove(SQ_F5, SQ_G6))
 				Expect(capturedMove).To(Equal(B_PAWN))
 			})
 		})
@@ -297,7 +297,7 @@ var _ = Describe("Position", func() {
 			It("restores the original position", func() {
 				move := NewNormalMove(SQ_D2, SQ_D4)
 				frozenPos := *pos.frozenPos
-				capPiece := pos.MakeMove(move)
+				capPiece, _ := pos.MakeMove(move)
 				pos.UnmakeMove(move, &frozenPos, capPiece)
 				expPos, _ := FromFEN("3k4/1b6/8/8/8/8/3P2B1/4K2R w - - 1 1")
 				Expect(pos).To(Equal(expPos))
@@ -307,7 +307,7 @@ var _ = Describe("Position", func() {
 			It("restores the original position", func() {
 				move := NewMove(SQ_E1, SQ_G1, NULL_SQ, EMPTY_PIECE_TYPE, true)
 				frozenPos := *pos.frozenPos
-				capPiece := pos.MakeMove(move)
+				capPiece, _ := pos.MakeMove(move)
 				pos.UnmakeMove(move, &frozenPos, capPiece)
 				expPos, _ := FromFEN("3k4/1b6/8/8/8/8/3P2B1/4K2R w - - 1 1")
 				Expect(pos).To(Equal(expPos))
@@ -317,7 +317,7 @@ var _ = Describe("Position", func() {
 			It("restores the original position", func() {
 				move := NewNormalMove(SQ_G2, SQ_B7)
 				frozenPos := *pos.frozenPos
-				capPiece := pos.MakeMove(move)
+				capPiece, _ := pos.MakeMove(move)
 				pos.UnmakeMove(move, &frozenPos, capPiece)
 				expPos, _ := FromFEN("3k4/1b6/8/8/8/8/3P2B1/4K2R w - - 1 1")
 				Expect(pos).To(Equal(expPos))
@@ -348,7 +348,7 @@ var _ = Describe("Position", func() {
 			It("restores the original position", func() {
 				move := NewNormalMove(SQ_G2, SQ_B7)
 				frozenPos := *pos.frozenPos
-				capPiece := pos.MakeMove(move)
+				capPiece, _ := pos.MakeMove(move)
 				pos.UnmakeMove(move, &frozenPos, capPiece)
 				expPos, _ := FromFEN("3k4/1b6/8/5Pp1/8/8/3P2B1/4K2R w K g6 1 1")
 				Expect(pos).To(Equal(expPos))
