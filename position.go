@@ -389,14 +389,20 @@ func (p *Position) MakeMove(move Move) (captured Piece) {
 		p.repetitions[p.hash] = 0
 	}
 	p.repetitions[p.hash]++
+
 	if p.repetitions[p.hash] >= 3 {
-		p.result = RESULT_DRAW_BY_REPETITION
+		p.result = RESULT_DRAW_REPETITION
+	} else if p.material.IsForcedDraw() {
+		p.result = RESULT_DRAW_MATL
+	} else if p.frozenPos.Rule50 >= 50 {
+		p.result = RESULT_DRAW_RULE50
 	}
 
 	return
 }
 
 func (p *Position) UnmakeMove(move Move, fp *FrozenPos, captured Piece) {
+	p.result = RESULT_IN_PROGRESS
 	p.repetitions[p.hash]--
 	if p.repetitions[p.hash] == 0 {
 		delete(p.repetitions, p.hash)
