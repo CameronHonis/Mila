@@ -103,6 +103,22 @@ func (p Piece) IsWhite() bool {
 	return p >= W_PAWN && p <= W_KING
 }
 
+func (p Piece) Color() Color {
+	if DEBUG {
+		if p == 0 {
+			log.Fatalf("cannot get color for EMPTY piece")
+		}
+		if p >= N_PIECES {
+			log.Fatalf("cannot get color for piece %d, piece out of range", p)
+		}
+	}
+	if p >= W_PAWN && p <= W_KING {
+		return WHITE
+	} else {
+		return BLACK
+	}
+}
+
 func (p Piece) String() string {
 	switch p {
 	case EMPTY:
