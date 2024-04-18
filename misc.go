@@ -1,6 +1,9 @@
 package main
 
-import "log"
+import (
+	"log"
+	"math"
+)
 
 type PieceType uint8
 
@@ -210,11 +213,9 @@ type Result uint8
 
 const (
 	RESULT_IN_PROGRESS Result = iota
-	RESULT_W_CHECKMATE
-	RESULT_B_CHECKMATE
 	RESULT_DRAW_MATL
 	RESULT_DRAW_50MOVE
-	RESULT_DRAW_STALEMATE
+	RESULT_DRAW_BY_REPETITION
 )
 
 type CastleRight uint8
@@ -255,4 +256,161 @@ func PlyFromNMoves(nMoves uint, isWhiteTurn bool) Ply {
 
 func NMovesFromPly(ply Ply) uint {
 	return uint(ply+2) / 2
+}
+
+// Material represents all the material on a current position. Both the light and
+// dark square bishops must be accounted for. Therefore, material piece indices are
+// as follows:
+//  00. W_PAWN
+//  01. W_KNIGHT
+//  02. W_LIGHT_BISHOP
+//  03. W_DARK_BISHOP
+//  04. W_ROOK
+//  05. W_QUEEN
+//  06. B_PAWN
+//  07. B_KNIGHT
+//  08. B_LIGHT_BISHOP
+//  09. B_DARK_BISHOP
+//  10. B_ROOK
+//  11. B_QUEEN
+type Material [12]uint8
+
+func InitMaterial() Material {
+	return Material{8, 2, 1, 1, 2, 1, 8, 2, 1, 1, 2, 1}
+}
+
+func (m *Material) AddPiece(piece Piece, sq Square) {
+	matIdx := m.pieceToMatIdx(piece, sq)
+	if DEBUG {
+		if piece.Type() == KING {
+			log.Fatalf("cannot add kings to Material")
+		}
+		if m[matIdx] == math.MaxUint8 {
+			log.Fatalf("could not remove piece %s from material, piece count already 255", piece)
+		}
+	}
+	m[matIdx]++
+}
+
+func (m *Material) RemovePiece(piece Piece, sq Square) {
+	matIdx := m.pieceToMatIdx(piece, sq)
+	if DEBUG {
+		if piece.Type() == KING {
+			log.Fatalf("cannot remove kings from Material")
+		}
+		if m[matIdx] == 0 {
+			log.Fatalf("could not remove piece %s from material, piece count already 0", piece)
+		}
+	}
+	m[matIdx]--
+}
+
+func (m *Material) IsForcedDraw() bool {
+	if m.nQueens() > 0 {
+		return false
+	}
+	if m.nRooks() > 0 {
+		return false
+	}
+	if m.nPawns() > 0 {
+		return false
+	}
+
+	nWKnights := m.nWKnights()
+	nWLightBishops := m.nWLightBishops()
+	nWDarkBishops := m.nWDarkBishops()
+	nWBishops := nWLightBishops + nWDarkBishops
+	if nWKnights > 2 {
+		return false
+	}
+	if nWKnights > 0 && nWBishops > 0 {
+		return false
+	}
+	if nWLightBishops > 0 && nWDarkBishops > 0 {
+		return false
+	}
+
+	nBKnights := m.nBKnights()
+	nBLightBishops := m.nBLightBishops()
+	nBDarkBishops := m.nBDarkBishops()
+	nBBishops := nBLightBishops + nBDarkBishops
+	if nBKnights > 2 {
+		return false
+	}
+	if nBKnights > 0 && nBBishops > 0 {
+		return false
+	}
+	if nBLightBishops > 0 && nBDarkBishops > 0 {
+		return false
+	}
+
+	return true
+}
+
+func (m *Material) nQueens() uint8 {
+	return m[5] + m[11]
+}
+
+func (m *Material) nRooks() uint8 {
+	return m[4] + m[10]
+}
+
+func (m *Material) nPawns() uint8 {
+	return m[0] + m[6]
+}
+
+func (m *Material) nWKnights() uint8 {
+	return m[1]
+}
+
+func (m *Material) nWLightBishops() uint8 {
+	return m[2]
+}
+
+func (m *Material) nWDarkBishops() uint8 {
+	return m[3]
+}
+
+func (m *Material) nBKnights() uint8 {
+	return m[7]
+}
+
+func (m *Material) nBLightBishops() uint8 {
+	return m[8]
+}
+
+func (m *Material) nBDarkBishops() uint8 {
+	return m[9]
+}
+
+func (m *Material) pieceToMatIdx(piece Piece, sq Square) uint {
+	if piece == W_PAWN {
+		return 0
+	} else if piece == W_KNIGHT {
+		return 1
+	} else if piece == W_BISHOP {
+		if sq.IsDark() {
+			return 3
+		} else {
+			return 2
+		}
+	} else if piece == W_ROOK {
+		return 4
+	} else if piece == W_QUEEN {
+		return 5
+	} else if piece == B_PAWN {
+		return 6
+	} else if piece == B_KNIGHT {
+		return 7
+	} else if piece == B_BISHOP {
+		if sq.IsDark() {
+			return 9
+		} else {
+			return 8
+		}
+	} else if piece == B_ROOK {
+		return 10
+	} else { // B_QUEEN
+		return 11
+	}
 }

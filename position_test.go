@@ -110,7 +110,7 @@ var _ = Describe("Position", func() {
 			Expect(pos.pieces).To(Equal(expPieces))
 			Expect(pos.colorBitboards[WHITE]).To(Equal(BBWithSquares(SQ_E1, SQ_H1, SQ_D2, SQ_G2)))
 			Expect(pos.colorBitboards[BLACK]).To(Equal(BBWithSquares(SQ_B7, SQ_D8)))
-			Expect(pos.material[B_BISHOP]).To(BeEquivalentTo(1))
+			Expect(pos.material.nBLightBishops()).To(BeEquivalentTo(1))
 			Expect(pos.hash).ToNot(BeEquivalentTo(0))
 			prevHash = pos.hash
 		})
@@ -187,7 +187,7 @@ var _ = Describe("Position", func() {
 				Expect(pos.pieceBitboards[B_BISHOP]).To(Equal(Bitboard(0)))
 				Expect(pos.colorBitboards[WHITE]).To(Equal(BBWithSquares(SQ_E1, SQ_H1, SQ_D2, SQ_B7)))
 				Expect(pos.colorBitboards[BLACK]).To(Equal(BBWithSquares(SQ_D8)))
-				Expect(pos.material[B_BISHOP]).To(BeEquivalentTo(0))
+				Expect(pos.material.nBLightBishops()).To(BeEquivalentTo(0))
 				Expect(pos.isWhiteTurn).To(BeFalse())
 			})
 			It("updates the hash", func() {

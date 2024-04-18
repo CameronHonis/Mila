@@ -24,11 +24,11 @@ type Position struct {
 	pieces         [N_SQUARES]Piece
 	pieceBitboards [N_PIECES]Bitboard
 	colorBitboards [N_COLORS]Bitboard
-	material       [N_PIECES]uint8
+	material       Material
 	repetitions    map[ZHash]uint8
 	ply            Ply
 	hash           ZHash
-	result         Result
+	result         Result // only covers non-checkmate/stalemate positions
 	isWhiteTurn    bool
 
 	frozenPos *FrozenPos
@@ -65,7 +65,7 @@ func InitPos() *Position {
 			0b00000000_00000000_00000000_00000000_00000000_00000000_11111111_11111111,
 			0b11111111_11111111_00000000_00000000_00000000_00000000_00000000_00000000,
 		},
-		material:    [N_PIECES]uint8{0, 8, 2, 2, 2, 1, 1, 8, 2, 2, 2, 1, 1},
+		material:    InitMaterial(),
 		repetitions: make(map[ZHash]uint8),
 		ply:         0,
 		result:      RESULT_IN_PROGRESS,
@@ -119,7 +119,9 @@ func FromFEN(fen string) (*Position, error) {
 			} else {
 				pos.colorBitboards[BLACK] |= BBWithSquares(sq)
 			}
-			pos.material[piece]++
+			if piece.Type() != KING {
+				pos.material.AddPiece(piece, sq)
+			}
 			file++
 		}
 		if file < 9 {
@@ -387,6 +389,9 @@ func (p *Position) MakeMove(move Move) (captured Piece) {
 		p.repetitions[p.hash] = 0
 	}
 	p.repetitions[p.hash]++
+	if p.repetitions[p.hash] >= 3 {
+		p.result = RESULT_DRAW_BY_REPETITION
+	}
 
 	return
 }
@@ -509,7 +514,7 @@ func (p *Position) removePiece(sq Square) (removed Piece) {
 		p.pieceBitboards[piece] ^= mask
 		p.pieceBitboards[EMPTY] ^= mask
 		p.colorBitboards[color] ^= mask
-		p.material[piece]--
+		p.material.RemovePiece(piece, sq)
 		p.hash = p.hash.UpdatePieceOnSq(piece, EMPTY, sq)
 	}
 	return piece
@@ -548,7 +553,7 @@ func (p *Position) addPiece(sq Square, piece Piece) {
 		p.pieceBitboards[EMPTY] ^= mask
 		p.pieceBitboards[piece] ^= mask
 		p.colorBitboards[NewColor(piece.IsWhite())] ^= mask
-		p.material[piece]++
+		p.material.AddPiece(piece, sq)
 		p.hash = p.hash.UpdatePieceOnSq(EMPTY, piece, sq)
 	}
 }
