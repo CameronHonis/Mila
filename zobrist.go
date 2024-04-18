@@ -104,25 +104,27 @@ func NewZHash(pos *Position) ZHash {
 	return hash
 }
 
-func (zh ZHash) TogglePieceOnSq(prevPiece, piece Piece, sq Square) {
+func (zh ZHash) UpdatePieceOnSq(prevPiece, piece Piece, sq Square) ZHash {
 	if prevPiece != EMPTY {
 		zh ^= lookups.PieceKeys[sq][prevPiece]
 	}
 	if piece != EMPTY {
 		zh ^= lookups.PieceKeys[sq][piece]
 	}
+	return zh
 }
 
-func (zh ZHash) UpdateEnPassantSq(prevEpSq, epSq Square) {
+func (zh ZHash) UpdateEnPassantSq(prevEpSq, epSq Square) ZHash {
 	if prevEpSq != NULL_SQ {
 		zh ^= lookups.EpSqKeys[prevEpSq]
 	}
 	if epSq != NULL_SQ {
 		zh ^= lookups.EpSqKeys[epSq]
 	}
+	return zh
 }
 
-func (zh ZHash) RemoveCastleRight(castleRight CastleRight) {
+func (zh ZHash) RemoveCastleRight(castleRight CastleRight) ZHash {
 	if castleRight == W_CASTLE_KINGSIDE_RIGHT {
 		zh ^= lookups.CanWhiteKingsideCastleKey
 	} else if castleRight == W_CASTLE_QUEENSIDE_RIGHT {
@@ -132,9 +134,11 @@ func (zh ZHash) RemoveCastleRight(castleRight CastleRight) {
 	} else if castleRight == B_CASTLE_QUEENSIDE_RIGHT {
 		zh ^= lookups.CanBlackQueensideCastleKey
 	}
+	return zh
 }
 
-func (zh ZHash) UpdateTurn() {
+func (zh ZHash) ToggleTurn() ZHash {
 	zh ^= lookups.WhiteTurnKey
 	zh ^= lookups.BlackTurnKey
+	return zh
 }

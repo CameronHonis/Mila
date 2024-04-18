@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
 )
@@ -27,9 +26,9 @@ type Position struct {
 	colorBitboards [N_COLORS]Bitboard
 	repetitions    map[ZHash]uint8
 	ply            Ply
+	hash           ZHash
 	result         Result
 	isWhiteTurn    bool
-	hash           ZHash
 
 	frozenPos *FrozenPos
 }
@@ -341,8 +340,9 @@ func (p *Position) IsLegalMove(pMove Move) bool {
 			return true
 		}
 
+		frozenPos := *p.frozenPos
 		capturedPiece := p.MakeMove(pMove)
-		defer p.UnmakeMove(pMove, capturedPiece)
+		defer p.UnmakeMove(pMove, &frozenPos, capturedPiece)
 
 		kingSq = p.pieceBitboards[NewPiece(KING, selfColor)].FirstSq()
 		return p.isSquareAttacked(oppColor, kingSq)
@@ -351,118 +351,168 @@ func (p *Position) IsLegalMove(pMove Move) bool {
 
 // MakeMove is a cheap way to execute a move on the piece arrangement only.
 // To make a move during search, State.MakeMove should instead be used.
-func (p *Position) MakeMove(move Move) (capturedPiece Piece) {
-	start := move.StartSq()
-	end := move.EndSq()
-	startMask := BBWithSquares(start)
-	endMask := BBWithSquares(end)
+func (p *Position) MakeMove(move Move) (captured Piece) {
+	p.frozenPos = p.frozenPos.Copy()
+	mt := move.Type()
 
-	piece := p.pieces[start]
-	capturedPiece = p.pieces[end]
-
-	p.pieces[start] = EMPTY
-	p.pieces[end] = piece
-
-	p.pieceBitboards[piece] ^= startMask | endMask
-	p.pieceBitboards[capturedPiece] ^= endMask
-	p.pieceBitboards[EMPTY] ^= startMask
-
-	p.colorBitboards[NewColor(p.isWhiteTurn)] ^= startMask | endMask
-	if capturedPiece != EMPTY {
-		p.colorBitboards[NewColor(!p.isWhiteTurn)] ^= endMask
-	}
-
-	if move.Type() == CASTLING {
-		endFile := end.File()
-		var rookStartSq Square
-		var rookEndSq Square
-		if endFile == 7 {
-			rookStartSq = end + 1
-			rookEndSq = end - 1
-		} else {
-			rookStartSq = end - 2
-			rookEndSq = end + 1
-		}
-		rookStartMask := BBWithSquares(rookStartSq)
-		rookEndMask := BBWithSquares(rookEndSq)
-
-		rookPiece := p.pieces[rookStartSq]
-		p.pieces[rookStartSq] = EMPTY
-		p.pieces[rookEndSq] = rookPiece
-		p.pieceBitboards[EMPTY] ^= rookStartMask | rookEndMask
-		p.pieceBitboards[rookPiece] ^= rookStartMask | rookEndMask
-		p.colorBitboards[NewColor(p.isWhiteTurn)] ^= rookStartMask | rookEndMask
-	} else if move.Type() == CAPTURES_EN_PASSANT {
-		epSq := SqFromCoords(int(start.Rank()), int(end.File()))
-		capturedPiece = NewPiece(PAWN, NewColor(!p.isWhiteTurn))
-		captureMask := BBWithSquares(epSq)
-		p.pieces[epSq] = EMPTY
-		p.pieceBitboards[capturedPiece] ^= captureMask
-		p.pieceBitboards[EMPTY] ^= captureMask
-		p.colorBitboards[NewColor(!p.isWhiteTurn)] ^= captureMask
+	if mt == CASTLING {
+		p.doCastle(move)
+	} else if mt == CAPTURES_EN_PASSANT {
+		captured = p.doEnPassant(move)
+	} else if mt == PAWN_PROMOTION {
+		captured = p.doPromote(move)
+	} else { // NORMAL MOVE
+		captured = p.movePiece(move.StartSq(), move.EndSq())
 	}
 
 	p.isWhiteTurn = !p.isWhiteTurn
+	p.hash = p.hash.ToggleTurn()
 	return
 }
 
-func (p *Position) UnmakeMove(move Move, capturedPiece Piece) {
-	start := move.StartSq()
-	end := move.EndSq()
-	startMask := BBWithSquares(start)
-	endMask := BBWithSquares(end)
+func (p *Position) UnmakeMove(move Move, frozenPos *FrozenPos, captured Piece) {
+	p.frozenPos = frozenPos
+	mt := move.Type()
 
-	piece := p.pieces[end]
-
-	p.pieces[start] = piece
-	p.pieces[end] = capturedPiece
-
-	p.pieceBitboards[piece] ^= startMask | endMask
-	p.pieceBitboards[EMPTY] ^= startMask
-	p.colorBitboards[NewColor(!p.isWhiteTurn)] ^= startMask | endMask
-
-	if move.Type() != CAPTURES_EN_PASSANT {
-		p.pieceBitboards[capturedPiece] ^= endMask
-		if capturedPiece != EMPTY {
-			p.colorBitboards[NewColor(p.isWhiteTurn)] ^= endMask
-		}
-	}
-
-	if move.Type() == CASTLING {
-		endFile := end.File()
-		var rookStartSq Square
-		var rookEndSq Square
-		if endFile == 7 {
-			rookStartSq = end + 1
-			rookEndSq = end - 1
-		} else {
-			rookStartSq = end - 2
-			rookEndSq = end + 1
-		}
-		rookStartMask := BBWithSquares(rookStartSq)
-		rookEndMask := BBWithSquares(rookEndSq)
-
-		rookPiece := p.pieces[rookEndSq]
-		p.pieces[rookEndSq] = EMPTY
-		p.pieces[rookStartSq] = rookPiece
-		p.pieceBitboards[EMPTY] ^= rookStartMask | rookEndMask
-		p.pieceBitboards[rookPiece] ^= rookStartMask | rookEndMask
-		p.colorBitboards[NewColor(!p.isWhiteTurn)] ^= rookStartMask | rookEndMask
-	} else if move.Type() == CAPTURES_EN_PASSANT {
-		if DEBUG {
-			if capturedPiece.Type() != PAWN {
-				log.Fatalf("unexpected capture piece %s unmaking en passant move in position", capturedPiece)
-			}
-		}
-		epSq := SqFromCoords(int(start.Rank()), int(end.File()))
-		captureMask := BBWithSquares(epSq)
-		p.pieces[epSq] = capturedPiece
-		p.pieceBitboards[capturedPiece] ^= captureMask
-		p.pieceBitboards[EMPTY] ^= captureMask
-		p.colorBitboards[NewColor(p.isWhiteTurn)] ^= captureMask
+	if mt == CASTLING {
+		p.undoCastle(move)
+	} else if mt == CAPTURES_EN_PASSANT {
+		p.undoEnPassant(move, captured)
+	} else if mt == PAWN_PROMOTION {
+		p.undoPromote(move, captured)
+	} else { // NORMAL
+		p.movePiece(move.EndSq(), move.StartSq())
+		p.addPiece(move.EndSq(), captured)
 	}
 
 	p.isWhiteTurn = !p.isWhiteTurn
+	p.hash = p.hash.ToggleTurn()
+}
+
+func (p *Position) doCastle(move Move) {
+	start := move.StartSq()
+	end := move.EndSq()
+	endFile := end.File()
+	var rookStartSq Square
+	var rookEndSq Square
+	if endFile == 7 {
+		rookStartSq = end + 1
+		rookEndSq = end - 1
+	} else {
+		rookStartSq = end - 2
+		rookEndSq = end + 1
+	}
+	p.movePiece(start, end)
+	p.movePiece(rookStartSq, rookEndSq)
+}
+
+func (p *Position) undoCastle(move Move) {
+	start := move.StartSq()
+	end := move.EndSq()
+	endFile := end.File()
+	var rookStartSq Square
+	var rookEndSq Square
+	if endFile == 7 {
+		rookStartSq = end + 1
+		rookEndSq = end - 1
+	} else {
+		rookStartSq = end - 2
+		rookEndSq = end + 1
+	}
+	p.movePiece(end, start)
+	p.movePiece(rookEndSq, rookStartSq)
+}
+
+func (p *Position) doEnPassant(move Move) (captured Piece) {
+	start := move.StartSq()
+	end := move.EndSq()
+	epSq := SqFromCoords(int(start.Rank()), int(end.File()))
+	p.movePiece(start, end)
+	captured = p.removePiece(epSq)
+	return
+}
+
+func (p *Position) undoEnPassant(move Move, captured Piece) {
+	start := move.StartSq()
+	end := move.EndSq()
+	epSq := SqFromCoords(int(start.Rank()), int(end.File()))
+	p.movePiece(end, start)
+	p.addPiece(epSq, captured)
+}
+
+func (p *Position) doPromote(move Move) (captured Piece) {
+	start := move.StartSq()
+	isWhite := p.pieces[start].IsWhite()
+	end := move.EndSq()
+
+	captured = p.movePiece(start, end)
+
+	prPiece := NewPiece(move.PromotedTo(), NewColor(isWhite))
+	p.replacePiece(end, prPiece)
+	return
+}
+
+func (p *Position) undoPromote(move Move, captured Piece) {
+	start := move.StartSq()
+	end := move.EndSq()
+	isWhite := p.pieces[end].IsWhite()
+	p.replacePiece(end, NewPiece(PAWN, NewColor(isWhite)))
+	p.movePiece(end, start)
+	p.addPiece(end, captured)
+}
+
+// removePiece removes the piece and keeps the bitboards consistent
+// NOTE: this does not affect the frozen fields
+func (p *Position) removePiece(sq Square) (removed Piece) {
+	piece := p.pieces[sq]
+	if piece != EMPTY {
+		color := NewColor(piece.IsWhite())
+		mask := BBWithSquares(sq)
+
+		p.pieces[sq] = EMPTY
+		p.pieceBitboards[piece] ^= mask
+		p.pieceBitboards[EMPTY] ^= mask
+		p.colorBitboards[color] ^= mask
+		p.hash = p.hash.UpdatePieceOnSq(piece, EMPTY, sq)
+	}
+	return piece
+}
+
+// movePiece moves the piece and keeps the bitboards consistent
+// NOTE: this does not affect the frozen fields
+func (p *Position) movePiece(startSq, endSq Square) (captured Piece) {
+	captured = p.removePiece(endSq)
+	piece := p.pieces[startSq]
+	if piece != EMPTY {
+		startMask := BBWithSquares(startSq)
+		endMask := BBWithSquares(endSq)
+		color := NewColor(piece.IsWhite())
+
+		p.pieces[startSq] = EMPTY
+		p.pieces[endSq] = piece
+		p.pieceBitboards[piece] ^= startMask | endMask
+		p.pieceBitboards[EMPTY] ^= startMask | endMask
+		p.colorBitboards[color] ^= startMask | endMask
+		p.hash = p.hash.UpdatePieceOnSq(piece, EMPTY, startSq)
+		p.hash = p.hash.UpdatePieceOnSq(EMPTY, piece, endSq)
+	}
+	return
+}
+
+func (p *Position) replacePiece(sq Square, piece Piece) {
+	p.removePiece(sq)
+	p.addPiece(sq, piece)
+}
+
+func (p *Position) addPiece(sq Square, piece Piece) {
+	if piece != EMPTY {
+		mask := BBWithSquares(sq)
+		p.pieces[sq] = piece
+		p.pieceBitboards[EMPTY] ^= mask
+		p.pieceBitboards[piece] ^= mask
+		p.colorBitboards[NewColor(piece.IsWhite())] ^= mask
+		p.hash = p.hash.UpdatePieceOnSq(EMPTY, piece, sq)
+	}
 }
 
 func (p *Position) isSquareAttacked(attackColor Color, sq Square) bool {
