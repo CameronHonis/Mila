@@ -29,21 +29,18 @@ func (iter *LegalMoveIter) Next() (move Move, done bool) {
 
 func GenPseudoLegalMoves(pos *Position) []Move {
 	rtn := make([]Move, 0)
-	for rank := 1; rank < 9; rank++ {
-		for file := 1; file < 9; file++ {
-			sq := SqFromCoords(rank, file)
-			piece := pos.pieces[sq]
-			pt := piece.Type()
-			if pt == PAWN {
-				moves := GenPseudoLegalPawnMoves(pos, sq)
-				rtn = append(rtn, moves...)
-			} else if pt == KING {
-				moves := GenPseudoLegalKingMoves(pos, sq)
-				rtn = append(rtn, moves...)
-			} else {
-				moves := GenPseudoLegalNimblePieceMoves(pos, sq)
-				rtn = append(rtn, moves...)
-			}
+	for sq := SQ_A1; sq < N_SQUARES; sq++ {
+		piece := pos.pieces[sq]
+		pt := piece.Type()
+		if pt == PAWN {
+			moves := GenPseudoLegalPawnMoves(pos, sq)
+			rtn = append(rtn, moves...)
+		} else if pt == KING {
+			moves := GenPseudoLegalKingMoves(pos, sq)
+			rtn = append(rtn, moves...)
+		} else {
+			moves := GenPseudoLegalNimblePieceMoves(pos, sq)
+			rtn = append(rtn, moves...)
 		}
 	}
 	return rtn
@@ -56,52 +53,24 @@ func GenPseudoLegalPawnMoves(pos *Position, sq Square) []Move {
 			log.Fatalf("cannot generate pawn move for non-pawn piece on %s in pos:\n%s", sq, pos)
 		}
 	}
-	file := sq.File()
-	isWhite := piece.IsWhite()
 
 	rtn := make([]Move, 0)
-	if file < 8 {
-		var rAttackSq Square
-		if isWhite {
-			rAttackSq = sq + 9
-		} else {
-			rAttackSq = sq - 7
-		}
-		attackedPiece := pos.pieces[rAttackSq]
-		if attackedPiece != EMPTY {
-			if attackedPiece.IsWhite() != isWhite {
-				if rAttackSq >= SQ_A8 || rAttackSq <= SQ_H1 {
-					rtn = append(rtn, NewPromoteMoves(sq, rAttackSq)...)
-				} else {
-					rtn = append(rtn, NewNormalMove(sq, rAttackSq))
-				}
+
+	var attacksBB = PawnAttacksBB(sq, piece.Color())
+	isWhite := piece.IsWhite()
+	for attacksBB > 0 {
+		var attackSq Square
+		attackSq, attacksBB = attacksBB.PopFirstSq()
+		attackedPiece := pos.pieces[attackSq]
+		if attackedPiece != EMPTY && attackedPiece.IsWhite() != isWhite {
+			rank := attackSq.Rank()
+			if rank == 1 || rank == 8 {
+				rtn = append(rtn, NewPromoteMoves(sq, attackSq)...)
+			} else {
+				rtn = append(rtn, NewNormalMove(sq, attackSq))
 			}
-		} else {
-			if rAttackSq == pos.frozenPos.EnPassantSq {
-				rtn = append(rtn, NewEnPassantMove(sq, rAttackSq))
-			}
-		}
-	}
-	if file > 1 {
-		var lAttackSq Square
-		if isWhite {
-			lAttackSq = sq + 7
-		} else {
-			lAttackSq = sq - 9
-		}
-		attackedPiece := pos.pieces[lAttackSq]
-		if attackedPiece != EMPTY {
-			if attackedPiece.IsWhite() != isWhite {
-				if lAttackSq >= SQ_A8 || lAttackSq <= SQ_H1 {
-					rtn = append(rtn, NewPromoteMoves(sq, lAttackSq)...)
-				} else {
-					rtn = append(rtn, NewNormalMove(sq, lAttackSq))
-				}
-			}
-		} else {
-			if lAttackSq == pos.frozenPos.EnPassantSq {
-				rtn = append(rtn, NewEnPassantMove(sq, lAttackSq))
-			}
+		} else if attackSq == pos.frozenPos.EnPassantSq {
+			rtn = append(rtn, NewEnPassantMove(sq, attackSq))
 		}
 	}
 
@@ -208,4 +177,45 @@ func GenPseudoLegalKingMoves(pos *Position, sq Square) []Move {
 		}
 	}
 	return rtn
+}
+
+func SlidingAttacksBB(occupied Bitboard, sq Square, pt PieceType) Bitboard {
+	initAttacks()
+	var rtn Bitboard
+	rank := sq.Rank()
+	if pt == ROOK || pt == QUEEN {
+		file := sq.File()
+		rankMask := BBWithRank(rank, 0b11111111)
+		occupiedRankBB := occupied & rankMask
+		rtn |= rankAttacks[occupiedRankBB][file-1]
+
+		fileMask := BBWithFile(file, 0b11111111)
+		occupiedFileBB := occupied & fileMask
+		rtn |= fileAttacks[occupiedFileBB][rank-1]
+	}
+	if pt == BISHOP || pt == QUEEN {
+		posDiagMask := BBWithPosDiag(sq.PosDiagIdx(), 0b11111111)
+		occupiedPosDiagBB := occupied & posDiagMask
+		rtn |= posDiagAttacks[occupiedPosDiagBB][rank-1]
+
+		negDiagMask := BBWithNegDiag(sq.NegDiagIdx(), 0b11111111)
+		occupiedNegDiagBB := occupied & negDiagMask
+		rtn |= negDiagAttacks[occupiedNegDiagBB][rank-1]
+	}
+	return rtn
+}
+
+func KnightAttacksBB(sq Square) Bitboard {
+	initAttacks()
+	return knightAttacks[sq]
+}
+
+func KingAttacksBB(sq Square) Bitboard {
+	initAttacks()
+	return kingAttacks[sq]
+}
+
+func PawnAttacksBB(sq Square, color Color) Bitboard {
+	initAttacks()
+	return pawnAttacks[sq][color]
 }

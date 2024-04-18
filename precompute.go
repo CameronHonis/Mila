@@ -13,44 +13,9 @@ var rankAttacks map[Bitboard][N_FILES]Bitboard
 var fileAttacks map[Bitboard][N_RANKS]Bitboard
 var posDiagAttacks map[Bitboard][N_RANKS]Bitboard
 var negDiagAttacks map[Bitboard][N_RANKS]Bitboard
+var pawnAttacks [N_SQUARES][N_COLORS]Bitboard
 var knightAttacks [N_SQUARES]Bitboard
 var kingAttacks [N_SQUARES]Bitboard
-
-func SlidingAttacksBB(occupied Bitboard, sq Square, pt PieceType) Bitboard {
-	initAttacks()
-	var rtn Bitboard
-	rank := sq.Rank()
-	if pt == ROOK || pt == QUEEN {
-		file := sq.File()
-		rankMask := BBWithRank(rank, 0b11111111)
-		occupiedRankBB := occupied & rankMask
-		rtn |= rankAttacks[occupiedRankBB][file-1]
-
-		fileMask := BBWithFile(file, 0b11111111)
-		occupiedFileBB := occupied & fileMask
-		rtn |= fileAttacks[occupiedFileBB][rank-1]
-	}
-	if pt == BISHOP || pt == QUEEN {
-		posDiagMask := BBWithPosDiag(sq.PosDiagIdx(), 0b11111111)
-		occupiedPosDiagBB := occupied & posDiagMask
-		rtn |= posDiagAttacks[occupiedPosDiagBB][rank-1]
-
-		negDiagMask := BBWithNegDiag(sq.NegDiagIdx(), 0b11111111)
-		occupiedNegDiagBB := occupied & negDiagMask
-		rtn |= negDiagAttacks[occupiedNegDiagBB][rank-1]
-	}
-	return rtn
-}
-
-func KnightAttacksBB(sq Square) Bitboard {
-	initAttacks()
-	return knightAttacks[sq]
-}
-
-func KingAttacksBB(sq Square) Bitboard {
-	initAttacks()
-	return kingAttacks[sq]
-}
 
 var isInitted = false
 
@@ -62,6 +27,7 @@ func initAttacks() {
 	initFileAttacks()
 	initPosDiagAttacks()
 	initNegDiagAttacks()
+	initPawnAttacks()
 	initKnightAttacks()
 	initKingAttacks()
 	isInitted = true
@@ -207,73 +173,97 @@ func initNegDiagAttacks() {
 	}
 }
 
+func initPawnAttacks() {
+	pawnAttacks = [N_SQUARES][N_COLORS]Bitboard{}
+	// skip first and last rank, no pawns expected to originate from these squares
+	for sq := SQ_A2; sq < SQ_A8; sq++ {
+		for color := WHITE; color < N_COLORS; color++ {
+			var bb Bitboard
+			file := sq.File()
+			if file > 1 {
+				if color == WHITE {
+					bb |= BBWithSquares(sq + 7)
+				} else {
+					bb |= BBWithSquares(sq - 9)
+				}
+			}
+			if file < 8 {
+				if color == WHITE {
+					bb |= BBWithSquares(sq + 9)
+				} else {
+					bb |= BBWithSquares(sq - 7)
+				}
+			}
+			pawnAttacks[sq][color] = bb
+		}
+	}
+}
+
 func initKnightAttacks() {
 	knightAttacks = [N_SQUARES]Bitboard{}
-	for rank := 1; rank < 9; rank++ {
-		for file := 1; file < 9; file++ {
-			sq := SqFromCoords(rank, file)
-			var bb Bitboard
-			if file > 1 && rank < 7 {
-				bb |= BBWithSquares(sq + 15)
-			}
-			if file > 1 && rank > 2 {
-				bb |= BBWithSquares(sq - 17)
-			}
-			if file > 2 && rank < 8 {
-				bb |= BBWithSquares(sq + 6)
-			}
-			if file > 2 && rank > 1 {
-				bb |= BBWithSquares(sq - 10)
-			}
-			if file < 7 && rank < 8 {
-				bb |= BBWithSquares(sq + 10)
-			}
-			if file < 7 && rank > 1 {
-				bb |= BBWithSquares(sq - 6)
-			}
-			if file < 8 && rank < 7 {
-				bb |= BBWithSquares(sq + 17)
-			}
-			if file < 8 && rank > 2 {
-				bb |= BBWithSquares(sq - 15)
-			}
-			knightAttacks[sq] = bb
+	for sq := SQ_A1; sq < N_SQUARES; sq++ {
+		file := sq.File()
+		rank := sq.Rank()
+		var bb Bitboard
+		if file > 1 && rank < 7 {
+			bb |= BBWithSquares(sq + 15)
 		}
+		if file > 1 && rank > 2 {
+			bb |= BBWithSquares(sq - 17)
+		}
+		if file > 2 && rank < 8 {
+			bb |= BBWithSquares(sq + 6)
+		}
+		if file > 2 && rank > 1 {
+			bb |= BBWithSquares(sq - 10)
+		}
+		if file < 7 && rank < 8 {
+			bb |= BBWithSquares(sq + 10)
+		}
+		if file < 7 && rank > 1 {
+			bb |= BBWithSquares(sq - 6)
+		}
+		if file < 8 && rank < 7 {
+			bb |= BBWithSquares(sq + 17)
+		}
+		if file < 8 && rank > 2 {
+			bb |= BBWithSquares(sq - 15)
+		}
+		knightAttacks[sq] = bb
 	}
 }
 
 func initKingAttacks() {
 	kingAttacks = [N_SQUARES]Bitboard{}
-	for rank := 1; rank < 9; rank++ {
-		for file := 1; file < 9; file++ {
-			sq := SqFromCoords(rank, file)
-			var bb Bitboard
-			if file > 1 {
-				bb |= BBWithSquares(sq - 1) // left
-				if rank > 1 {
-					bb |= BBWithSquares(sq - 9) // left-down
-				}
-				if rank < 8 {
-					bb |= BBWithSquares(sq + 7) // left-up
-				}
-			}
-			if file < 8 {
-				bb |= BBWithSquares(sq + 1) // right
-				if rank > 1 {
-					bb |= BBWithSquares(sq - 7) // right-down
-				}
-				if rank < 8 {
-					bb |= BBWithSquares(sq + 9) // right-up
-				}
-			}
+	for sq := SQ_A1; sq < N_SQUARES; sq++ {
+		file := sq.File()
+		rank := sq.Rank()
+		var bb Bitboard
+		if file > 1 {
+			bb |= BBWithSquares(sq - 1) // left
 			if rank > 1 {
-				bb |= BBWithSquares(sq - 8) // down
+				bb |= BBWithSquares(sq - 9) // left-down
 			}
 			if rank < 8 {
-				bb |= BBWithSquares(sq + 8) // up
+				bb |= BBWithSquares(sq + 7) // left-up
 			}
-			kingAttacks[sq] = bb
 		}
+		if file < 8 {
+			bb |= BBWithSquares(sq + 1) // right
+			if rank > 1 {
+				bb |= BBWithSquares(sq - 7) // right-down
+			}
+			if rank < 8 {
+				bb |= BBWithSquares(sq + 9) // right-up
+			}
+		}
+		if rank > 1 {
+			bb |= BBWithSquares(sq - 8) // down
+		}
+		if rank < 8 {
+			bb |= BBWithSquares(sq + 8) // up
+		}
+		kingAttacks[sq] = bb
 	}
 }
 
