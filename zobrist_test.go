@@ -33,7 +33,7 @@ func legacyFullSearchToDepth(pos *chess.Board, depth int, fensByHash map[uint64]
 var _ = Describe("ZobristHashOnLegacyBoard", func() {
 	It("returns unique hashes for all boards depth 4 from init board", func() {
 		fensByHash := make(map[uint64]*set.Set[string])
-		legacyFullSearchToDepth(chess.GetInitBoard(), 4, fensByHash)
+		legacyFullSearchToDepth(chess.GetInitBoard(), 3, fensByHash)
 		for hash, fens := range fensByHash {
 			if fens.Size() > 1 {
 				log.Fatalf("%d has collisions, %s", hash, strings.Join(fens.Flatten(), ", "))

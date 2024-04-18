@@ -352,8 +352,21 @@ func (p *Position) IsLegalMove(pMove Move) bool {
 // MakeMove is a cheap way to execute a move on the piece arrangement only.
 // To make a move during search, State.MakeMove should instead be used.
 func (p *Position) MakeMove(move Move) (captured Piece) {
-	p.frozenPos = p.frozenPos.Copy()
 	mt := move.Type()
+
+	p.ply++
+
+	lastFPos := p.frozenPos
+	p.updateFrozenPos(move)
+
+	if lastFPos.EnPassantSq != p.frozenPos.EnPassantSq {
+		p.hash = p.hash.UpdateEnPassantSq(lastFPos.EnPassantSq, p.frozenPos.EnPassantSq)
+	}
+	for castleRight := W_CASTLE_KINGSIDE_RIGHT; castleRight < N_CASTLE_RIGHTS; castleRight++ {
+		if lastFPos.CastleRights[castleRight] != p.frozenPos.CastleRights[castleRight] {
+			p.hash = p.hash.ToggleCastleRight(castleRight)
+		}
+	}
 
 	if mt == CASTLING {
 		p.doCastle(move)
@@ -370,10 +383,20 @@ func (p *Position) MakeMove(move Move) (captured Piece) {
 	return
 }
 
-func (p *Position) UnmakeMove(move Move, frozenPos *FrozenPos, captured Piece) {
-	p.frozenPos = frozenPos
-	mt := move.Type()
+func (p *Position) UnmakeMove(move Move, fp *FrozenPos, captured Piece) {
+	if fp.EnPassantSq != p.frozenPos.EnPassantSq {
+		p.hash = p.hash.UpdateEnPassantSq(p.frozenPos.EnPassantSq, fp.EnPassantSq)
+	}
+	for castleRight := W_CASTLE_KINGSIDE_RIGHT; castleRight < N_CASTLE_RIGHTS; castleRight++ {
+		if fp.CastleRights[castleRight] != p.frozenPos.CastleRights[castleRight] {
+			p.hash = p.hash.ToggleCastleRight(castleRight)
+		}
+	}
+	p.frozenPos = fp
 
+	p.ply--
+
+	mt := move.Type()
 	if mt == CASTLING {
 		p.undoCastle(move)
 	} else if mt == CAPTURES_EN_PASSANT {
@@ -512,6 +535,61 @@ func (p *Position) addPiece(sq Square, piece Piece) {
 		p.pieceBitboards[piece] ^= mask
 		p.colorBitboards[NewColor(piece.IsWhite())] ^= mask
 		p.hash = p.hash.UpdatePieceOnSq(EMPTY, piece, sq)
+	}
+}
+
+// updateFrozenPos updates a copy of the immutable (irreversible) state in
+// Position. Castle rights and en passant square also bleed into Position.hash,
+// but are NOT updated here. This is intended to be called before the Position's
+// pieces are updated.
+func (p *Position) updateFrozenPos(move Move) {
+	fp := p.frozenPos.Copy()
+	p.frozenPos = fp
+	fp.EnPassantSq = NULL_SQ
+	fp.Rule50++
+
+	start := move.StartSq()
+	end := move.EndSq()
+	mt := move.Type()
+	piece := p.pieces[start]
+	capturedPiece := p.pieces[end]
+	isWhite := piece.IsWhite()
+	pt := piece.Type()
+
+	if mt == CASTLING || pt == PAWN || capturedPiece != EMPTY {
+		fp.Rule50 = 0
+	}
+
+	if pt == KING {
+		if isWhite {
+			if fp.CastleRights[W_CASTLE_KINGSIDE_RIGHT] {
+				fp.CastleRights[W_CASTLE_KINGSIDE_RIGHT] = false
+			}
+			if fp.CastleRights[W_CASTLE_QUEENSIDE_RIGHT] {
+				fp.CastleRights[W_CASTLE_QUEENSIDE_RIGHT] = false
+			}
+		} else {
+			if fp.CastleRights[B_CASTLE_KINGSIDE_RIGHT] {
+				fp.CastleRights[B_CASTLE_KINGSIDE_RIGHT] = false
+			}
+			if fp.CastleRights[B_CASTLE_QUEENSIDE_RIGHT] {
+				fp.CastleRights[B_CASTLE_QUEENSIDE_RIGHT] = false
+			}
+		}
+	} else if (start == SQ_A1 || end == SQ_A1) && fp.CastleRights[W_CASTLE_QUEENSIDE_RIGHT] {
+		fp.CastleRights[W_CASTLE_QUEENSIDE_RIGHT] = false
+	} else if (start == SQ_H1 || end == SQ_H1) && fp.CastleRights[W_CASTLE_KINGSIDE_RIGHT] {
+		fp.CastleRights[W_CASTLE_KINGSIDE_RIGHT] = false
+	} else if (start == SQ_A8 || end == SQ_A8) && fp.CastleRights[B_CASTLE_QUEENSIDE_RIGHT] {
+		fp.CastleRights[B_CASTLE_QUEENSIDE_RIGHT] = false
+	} else if (start == SQ_H8 || end == SQ_H8) && fp.CastleRights[B_CASTLE_KINGSIDE_RIGHT] {
+		fp.CastleRights[B_CASTLE_KINGSIDE_RIGHT] = false
+	} else if pt == PAWN {
+		if start.Rank() == 2 && end.Rank() == 4 {
+			fp.EnPassantSq = SqFromCoords(3, int(end.File()))
+		} else if start.Rank() == 7 && end.Rank() == 5 {
+			fp.EnPassantSq = SqFromCoords(6, int(end.File()))
+		}
 	}
 }
 

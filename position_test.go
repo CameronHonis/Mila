@@ -82,7 +82,7 @@ var _ = Describe("Position", func() {
 		var prevHash ZHash
 		BeforeEach(func() {
 			var posErr error
-			pos, posErr = FromFEN("3k4/1b6/8/8/8/8/3P2B1/4K2R w - - 1 1")
+			pos, posErr = FromFEN("3k4/1b6/8/8/8/8/3P2B1/4K2R w K - 0 1")
 			Expect(posErr).ToNot(HaveOccurred())
 			expPieceBBs := [N_PIECES]Bitboard{
 				0b11110111_11111101_11111111_11111111_11111111_11111111_10110111_01101111,
@@ -129,6 +129,20 @@ var _ = Describe("Position", func() {
 				pos.MakeMove(NewNormalMove(SQ_D2, SQ_D4))
 				Expect(pos.hash).ToNot(Equal(prevHash))
 			})
+			It("updates the ply", func() {
+				pos.MakeMove(NewNormalMove(SQ_D2, SQ_D4))
+				Expect(pos.ply).To(BeEquivalentTo(1))
+			})
+			It("updates a copy of frozenPos", func() {
+				oldFP := pos.frozenPos
+				pos.MakeMove(NewNormalMove(SQ_D2, SQ_D4))
+				fp := pos.frozenPos
+				Expect(fp.Rule50).To(BeEquivalentTo(0))
+				Expect(fp.EnPassantSq).To(Equal(SQ_D3))
+				expCastleRights := [N_CASTLE_RIGHTS]bool{true, false, false, false}
+				Expect(fp.CastleRights).To(Equal(expCastleRights))
+				Expect(oldFP).ToNot(Equal(fp))
+			})
 		})
 		When("the move is castles", func() {
 			It("updates the position pieces", func() {
@@ -147,6 +161,16 @@ var _ = Describe("Position", func() {
 			It("updates the hash", func() {
 				pos.MakeMove(NewMove(SQ_E1, SQ_G1, NULL_SQ, EMPTY_PIECE_TYPE, true))
 				Expect(pos.hash).ToNot(Equal(prevHash))
+			})
+			It("updates a copy of frozenPos", func() {
+				oldFP := pos.frozenPos
+				pos.MakeMove(NewMove(SQ_E1, SQ_G1, NULL_SQ, EMPTY_PIECE_TYPE, true))
+				fp := pos.frozenPos
+				Expect(fp).ToNot(Equal(oldFP))
+				Expect(fp.Rule50).To(BeEquivalentTo(0))
+				expCastleRights := [N_CASTLE_RIGHTS]bool{false, false, false, false}
+				Expect(fp.CastleRights).To(Equal(expCastleRights))
+				Expect(fp.EnPassantSq).To(Equal(NULL_SQ))
 			})
 		})
 		When("the move is a capture", func() {
@@ -167,6 +191,14 @@ var _ = Describe("Position", func() {
 			It("returns the captured piece", func() {
 				capturedPiece := pos.MakeMove(NewNormalMove(SQ_G2, SQ_B7))
 				Expect(capturedPiece).To(Equal(B_BISHOP))
+			})
+			It("updates a copy of frozenPos", func() {
+				pos.MakeMove(NewNormalMove(SQ_G2, SQ_B7))
+				fp := pos.frozenPos
+				Expect(fp.Rule50).To(BeEquivalentTo(0))
+				expCastleRights := [N_CASTLE_RIGHTS]bool{true, false, false, false}
+				Expect(fp.CastleRights).To(Equal(expCastleRights))
+				Expect(fp.EnPassantSq).To(Equal(NULL_SQ))
 			})
 		})
 		When("the move is en passant", func() {
@@ -205,6 +237,16 @@ var _ = Describe("Position", func() {
 			It("updates the hash", func() {
 				pos.MakeMove(NewEnPassantMove(SQ_F5, SQ_G6))
 				Expect(pos.hash).ToNot(Equal(prevHash))
+			})
+			It("updates a copy of frozenPos", func() {
+				oldFP := pos.frozenPos
+				pos.MakeMove(NewEnPassantMove(SQ_F5, SQ_G6))
+				fp := pos.frozenPos
+				Expect(fp).ToNot(Equal(oldFP))
+				Expect(fp.Rule50).To(BeEquivalentTo(0))
+				expCastleRights := [N_CASTLE_RIGHTS]bool{true, false, false, false}
+				Expect(fp.CastleRights).To(Equal(expCastleRights))
+				Expect(fp.EnPassantSq).To(Equal(NULL_SQ))
 			})
 			It("returns a black pawn", func() {
 				capturedMove := pos.MakeMove(NewEnPassantMove(SQ_F5, SQ_G6))

@@ -124,7 +124,9 @@ func (zh ZHash) UpdateEnPassantSq(prevEpSq, epSq Square) ZHash {
 	return zh
 }
 
-func (zh ZHash) RemoveCastleRight(castleRight CastleRight) ZHash {
+// ToggleCastleRight is a generalized version of RemoveCastleRight, as it's important
+// to add castle rights back when updating the Position.hash while unmaking a move.
+func (zh ZHash) ToggleCastleRight(castleRight CastleRight) ZHash {
 	if castleRight == W_CASTLE_KINGSIDE_RIGHT {
 		zh ^= lookups.CanWhiteKingsideCastleKey
 	} else if castleRight == W_CASTLE_QUEENSIDE_RIGHT {
