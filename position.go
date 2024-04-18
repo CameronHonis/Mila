@@ -352,8 +352,7 @@ func (p *Position) IsLegalMove(pMove Move) bool {
 	}
 }
 
-// MakeMove is a cheap way to execute a move on the piece arrangement only.
-// To make a move during search, State.MakeMove should instead be used.
+// MakeMove expects the inbound move to be filtered by Position.IsLegalMove
 func (p *Position) MakeMove(move Move) (captured Piece) {
 	mt := move.Type()
 
@@ -678,4 +677,28 @@ func (p *Position) isSquareAttacked(attackColor Color, sq Square) bool {
 		}
 	}
 	return false
+}
+
+func (p *Position) givesCheck(move Move) bool {
+	end := move.EndSq()
+	piece := p.pieces[move.StartSq()]
+	pt := piece.Type()
+	color := piece.Color()
+
+	var attacksBB Bitboard
+	if pt == PAWN {
+		attacksBB = PawnAttacksBB(end, color)
+	} else if pt == KNIGHT {
+		attacksBB = KnightAttacksBB(end)
+	} else if pt == BISHOP || pt == ROOK || pt == QUEEN {
+		attacksBB = SlidingAttacksBB(p.OccupiedBB(), end, pt)
+	} else {
+		attacksBB = KingAttacksBB(end)
+	}
+
+	if color == WHITE {
+		return p.pieceBitboards[B_KING]&attacksBB > 0
+	} else {
+		return p.pieceBitboards[W_KING]&attacksBB > 0
+	}
 }
