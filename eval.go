@@ -8,27 +8,22 @@ const (
 	BISHOP_VAL = 320
 	ROOK_VAL   = 500
 	QUEEN_VAL  = 950
-	KING_VAL   = 10000
+	MATE_VAL   = 10000
+	DRAW_VAL   = -50
 )
 
-func EvalPos(pos *chess.Board) float64 {
-	if pos.Result == chess.BOARD_RESULT_WHITE_WINS_BY_CHECKMATE {
-		return KING_VAL / 100
-	} else if pos.Result == chess.BOARD_RESULT_BLACK_WINS_BY_CHECKMATE {
-		return -KING_VAL / 100
-	} else if pos.Result != chess.BOARD_RESULT_IN_PROGRESS {
-		return (-0.5 * PAWN_VAL) / 100
+func EvalPos(pos *Position) int16 {
+	if pos.result != RESULT_IN_PROGRESS {
+		return DRAW_VAL
 	}
-	matCount := pos.ComputeMaterialCount()
-	pawnDiff := int(matCount.WhitePawnCount) - int(matCount.BlackPawnCount)
-	knightDiff := int(matCount.WhiteKnightCount) - int(matCount.BlackKnightCount)
-	bishopDiff := int(matCount.WhiteLightBishopCount) + int(matCount.WhiteDarkBishopCount) -
-		int(matCount.BlackLightBishopCount) - int(matCount.BlackDarkBishopCount)
-	rookDiff := int(matCount.WhiteRookCount) - int(matCount.BlackRookCount)
-	queenDiff := int(matCount.WhiteQueenCount) - int(matCount.BlackQueenCount)
-	rawScore := PAWN_VAL*pawnDiff + KNIGHT_VAL*knightDiff + BISHOP_VAL*bishopDiff +
-		ROOK_VAL*rookDiff + QUEEN_VAL*queenDiff
-	return float64(rawScore) / 100
+	mat := pos.material
+	eval := PAWN_VAL*mat.pawnDiff() + KNIGHT_VAL*mat.knightDiff() + BISHOP_VAL*mat.bishopDiff() +
+		ROOK_VAL*mat.rookDiff() + QUEEN_VAL*mat.queenDiff()
+	if pos.isWhiteTurn {
+		return eval
+	} else {
+		return -eval
+	}
 	// TODO: attacks (direct and/or discoveries) - Maybe too slow to justify?
 
 	// TODO: positional eval (square value by piece lookups and castling)
@@ -36,9 +31,10 @@ func EvalPos(pos *chess.Board) float64 {
 	// TODO: passed pawns
 }
 
-func ExpMoves(pos *chess.Board) int {
+func ExpMoves(pos *Position) int {
 	// just arbitrary numbers at this point
-	return MaxInt(80-int(pos.FullMoveCount), 30)
+	// TODO: heavily rely on material, instead of prior moves made
+	return MaxInt(80-int(pos.ply), 30)
 }
 
 func PieceValue(piece chess.Piece) int {
@@ -53,7 +49,7 @@ func PieceValue(piece chess.Piece) int {
 	} else if piece.IsQueen() {
 		return QUEEN_VAL
 	} else if piece.IsKing() {
-		return KING_VAL
+		return MATE_VAL
 	} else {
 		return 0
 	}

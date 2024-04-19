@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/CameronHonis/chess"
 	"log"
 )
 
@@ -84,6 +85,45 @@ func NewPromoteMoves(startSq Square, endSq Square) []Move {
 		NewMove(startSq, endSq, NULL_SQ, ROOK, false),
 		NewMove(startSq, endSq, NULL_SQ, QUEEN, false),
 	}
+}
+
+func LegalMoveFromLegacyMove(legacyMove *chess.Move, pos *Position) (Move, error) {
+	iter := NewLegalMoveIter(pos)
+	for {
+		move, done := iter.Next()
+		if done {
+			break
+		}
+		if move.StartSq().Rank() != legacyMove.StartSquare.Rank {
+			continue
+		}
+		if move.StartSq().File() != legacyMove.StartSquare.File {
+			continue
+		}
+		if move.EndSq().Rank() != legacyMove.EndSquare.Rank {
+			continue
+		}
+		if move.EndSq().File() != legacyMove.EndSquare.File {
+			continue
+		}
+		if move.PromotedTo() == EMPTY_PIECE_TYPE && legacyMove.PawnUpgradedTo != chess.EMPTY {
+			continue
+		}
+		if move.PromotedTo() == KNIGHT && !(legacyMove.PawnUpgradedTo == chess.WHITE_KNIGHT || legacyMove.PawnUpgradedTo == chess.BLACK_KNIGHT) {
+			continue
+		}
+		if move.PromotedTo() == BISHOP && !(legacyMove.PawnUpgradedTo == chess.WHITE_BISHOP || legacyMove.PawnUpgradedTo == chess.BLACK_BISHOP) {
+			continue
+		}
+		if move.PromotedTo() == ROOK && !(legacyMove.PawnUpgradedTo == chess.WHITE_ROOK || legacyMove.PawnUpgradedTo == chess.BLACK_ROOK) {
+			continue
+		}
+		if move.PromotedTo() == QUEEN && !(legacyMove.PawnUpgradedTo == chess.WHITE_QUEEN || legacyMove.PawnUpgradedTo == chess.BLACK_QUEEN) {
+			continue
+		}
+		return move, nil
+	}
+	return NULL_MOVE, fmt.Errorf("could not find legal move %s in pos:\n%s", legacyMove.ToLongAlgebraic(), pos)
 }
 
 func (m Move) StartSq() Square {

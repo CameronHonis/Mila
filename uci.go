@@ -10,13 +10,13 @@ import (
 )
 
 type Uci struct {
-	pos *chess.Board
+	pos *Position
 	tt  *TranspTable
 }
 
 func NewUci(tt *TranspTable) *Uci {
 	return &Uci{
-		pos: chess.GetInitBoard(),
+		pos: InitPos(),
 		tt:  tt,
 	}
 }
@@ -42,7 +42,7 @@ func (uci *Uci) handleInput(s string) {
 		if err != nil {
 			fmt.Println(err)
 		} else if pos != nil {
-			fmt.Println("set position to", pos.ToFEN())
+			fmt.Println("set position to", pos.FEN())
 			uci.pos = pos
 		}
 	} else if cmd == "go" {
@@ -58,26 +58,26 @@ func (uci *Uci) handleInput(s string) {
 	}
 }
 
-func handlePositionCmd(toks []string) (*chess.Board, error) {
+func handlePositionCmd(toks []string) (*Position, error) {
 	if len(toks) < 2 || toks[1] == "--help" || toks[1] == "help" {
 		printPositionCmdHelp()
 		return nil, nil
 	}
 	tokIdx := 1
-	var pos *chess.Board
+	var pos *Position
 	if toks[tokIdx] == "fen" {
 		if len(toks) < 8 {
 			return nil, fmt.Errorf("incorrect number of FEN segments, got %d, expected 6", 8-len(toks))
 		}
 		fen := strings.Join(toks[2:8], " ")
 		var err error
-		pos, err = chess.BoardFromFEN(fen)
+		pos, err = FromFEN(fen)
 		if err != nil {
 			return nil, fmt.Errorf("could not parse FEN %s: %s", fen, err)
 		}
 		tokIdx = 8
 	} else if toks[tokIdx] == "startpos" {
-		pos = chess.GetInitBoard()
+		pos = InitPos()
 		tokIdx = 2
 	}
 
@@ -88,11 +88,21 @@ func handlePositionCmd(toks []string) (*chess.Board, error) {
 			continue
 		}
 		if isMoveToks {
-			move, moveErr := chess.MoveFromAlgebraic(toks[tokIdx], pos)
+			board, boardErr := chess.BoardFromFEN(pos.FEN())
+			if boardErr != nil {
+				return nil, fmt.Errorf("could not convert from pos to board: %s", boardErr)
+			}
+			move, moveErr := chess.MoveFromAlgebraic(toks[tokIdx], board)
 			if moveErr != nil {
 				return nil, fmt.Errorf("could not parse move: %s", moveErr)
 			}
-			pos = chess.GetBoardFromMove(pos, move)
+
+			board = chess.GetBoardFromMove(board, move)
+			var posErr error
+			pos, posErr = FromFEN(board.ToFEN())
+			if posErr != nil {
+				return nil, fmt.Errorf("could not convert from board to pos: %s", posErr)
+			}
 		}
 	}
 	return pos, nil
@@ -115,7 +125,7 @@ func printPositionCmdHelp() {
 	fmt.Println("   https://www.chessprogramming.org/Algebraic_Chess_Notation#LAN")
 }
 
-func handleGoCmd(toks []string, pos *chess.Board) (*SearchConstraints, error) {
+func handleGoCmd(toks []string, pos *Position) (*SearchConstraints, error) {
 	if len(toks) == 2 && (toks[1] == "--help" || toks[1] == "help") {
 		printGoCmdHelp()
 	}
@@ -129,12 +139,20 @@ func handleGoCmd(toks []string, pos *chess.Board) (*SearchConstraints, error) {
 			var moveIdx = 0
 			for ; moveIdx+tokIdx+1 < len(toks); moveIdx++ {
 				moveStr := toks[moveIdx+tokIdx+1]
-				move, moveErr := chess.MoveFromLongAlgebraic(moveStr, pos)
-				if moveErr != nil {
-					return nil, fmt.Errorf("could not parse move %s: %s", moveStr, moveErr)
+				board, boardErr := chess.BoardFromFEN(pos.FEN())
+				if boardErr != nil {
+					return nil, fmt.Errorf("could not convert from pos to board: %s", boardErr)
+				}
+				legacyMove, legacyMoveErr := chess.MoveFromLongAlgebraic(moveStr, board)
+				if legacyMoveErr != nil {
+					return nil, fmt.Errorf("could not parse move %s: %s", moveStr, legacyMoveErr)
 				}
 				if opts.moves == nil {
-					opts.moves = make([]*chess.Move, 0)
+					opts.moves = make([]Move, 0)
+				}
+				move, moveErr := LegalMoveFromLegacyMove(legacyMove, pos)
+				if moveErr != nil {
+					return nil, fmt.Errorf("could not find legal move match from legacy move: %s", moveErr)
 				}
 				opts.moves = append(opts.moves, move)
 			}
@@ -192,7 +210,7 @@ func handleGoCmd(toks []string, pos *chess.Board) (*SearchConstraints, error) {
 			if parseErr != nil {
 				return nil, fmt.Errorf("could not parse %s as depth: %s", depthStr, parseErr)
 			}
-			opts.maxDepth = depth
+			opts.maxDepth = uint8(depth)
 			tokIdx += 2
 		} else if currTok == "nodes" {
 			if tokIdx+1 >= len(toks) {

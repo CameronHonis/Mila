@@ -1,17 +1,16 @@
 package main
 
 import (
-	"github.com/CameronHonis/chess"
 	"math"
 )
 
 type SearchConstraints struct {
-	moves       []*chess.Move
+	moves       []Move
 	whiteMs     int
 	blackMs     int
 	whiteIncrMs int
 	blackIncrMs int
-	maxDepth    int
+	maxDepth    uint8
 	maxNodes    int
 	maxMs       int
 }
@@ -23,11 +22,11 @@ func (sc *SearchConstraints) NodeCntLmt() int {
 	return math.MaxInt
 }
 
-func (sc *SearchConstraints) DepthLmt() int {
+func (sc *SearchConstraints) DepthLmt() uint8 {
 	if sc.maxDepth > 0 {
 		return sc.maxDepth
 	}
-	return math.MaxInt
+	return math.MaxUint8
 }
 
 func (sc *SearchConstraints) MaxSearchMs() int {
