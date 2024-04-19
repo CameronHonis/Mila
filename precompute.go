@@ -103,7 +103,7 @@ func initPosDiagAttacks() {
 		diagIdx := occupiedBB.FirstSq().PosDiagIdx()
 		diagMask := BBWithPosDiag(diagIdx, 0b11111111)
 		attackBBs := [N_RANKS]Bitboard{}
-		for rank := uint8(1); rank < N_RANKS; rank++ {
+		for rank := uint8(1); rank <= N_RANKS; rank++ {
 			var attackBB Bitboard
 			rankMask := BBWithRank(rank, 0b11111111)
 			sq := (diagMask & rankMask).FirstSq()
@@ -141,7 +141,7 @@ func initNegDiagAttacks() {
 		diagIdx := occupiedBB.FirstSq().NegDiagIdx()
 		diagMask := BBWithNegDiag(diagIdx, 0b11111111)
 		attackBBs := [N_RANKS]Bitboard{}
-		for rank := uint8(1); rank < N_RANKS; rank++ {
+		for rank := uint8(1); rank <= N_RANKS; rank++ {
 			var attackBB Bitboard
 			rankMask := BBWithRank(rank, 0b11111111)
 			sq := (diagMask & rankMask).FirstSq()
@@ -175,27 +175,27 @@ func initNegDiagAttacks() {
 
 func initPawnAttacks() {
 	pawnAttacks = [N_SQUARES][N_COLORS]Bitboard{}
-	// skip first and last rank, no pawns expected to originate from these squares
-	for sq := SQ_A2; sq < SQ_A8; sq++ {
-		for color := WHITE; color < N_COLORS; color++ {
-			var bb Bitboard
-			file := sq.File()
-			if file > 1 {
-				if color == WHITE {
-					bb |= BBWithSquares(sq + 7)
-				} else {
-					bb |= BBWithSquares(sq - 9)
-				}
-			}
-			if file < 8 {
-				if color == WHITE {
-					bb |= BBWithSquares(sq + 9)
-				} else {
-					bb |= BBWithSquares(sq - 7)
-				}
-			}
-			pawnAttacks[sq][color] = bb
+	for sq := SQ_A1; sq < SQ_A8; sq++ {
+		var bb Bitboard
+		file := sq.File()
+		if file > 1 {
+			bb |= BBWithSquares(sq + 7)
 		}
+		if file < 8 {
+			bb |= BBWithSquares(sq + 9)
+		}
+		pawnAttacks[sq][WHITE] = bb
+	}
+	for sq := SQ_A2; sq <= SQ_H8; sq++ {
+		var bb Bitboard
+		file := sq.File()
+		if file > 1 {
+			bb |= BBWithSquares(sq - 9)
+		}
+		if file < 8 {
+			bb |= BBWithSquares(sq - 7)
+		}
+		pawnAttacks[sq][BLACK] = bb
 	}
 }
 
