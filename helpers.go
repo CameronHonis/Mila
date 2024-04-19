@@ -75,3 +75,10 @@ func ConcatStringsHorizontally(multiLineStrs ...string) string {
 	}
 	return builder.String()
 }
+
+func ReverseSlice[T any](s []T) {
+	for i := len(s)/2 - 1; i >= 0; i-- {
+		opp := len(s) - 1 - i
+		s[i], s[opp] = s[opp], s[i]
+	}
+}

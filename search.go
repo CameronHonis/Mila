@@ -2,9 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/CameronHonis/chess"
 	"github.com/CameronHonis/marker"
-	"math"
 	"time"
 )
 
@@ -20,7 +18,7 @@ const PRINT_TIME = true
 
 type Search struct {
 	__static__  marker.Marker
-	Root        *chess.Board
+	Root        *Position
 	TT          *TranspTable
 	Constraints *SearchConstraints
 
@@ -33,12 +31,12 @@ type Search struct {
 	pruneCntsOnDepth []int
 
 	__accumulated__ marker.Marker
-	depth           int
+	depth           uint8
 	score           float64
 	accNodeCnt      int
 }
 
-func NewSearch(pos *chess.Board, constraints *SearchConstraints, tt *TranspTable) *Search {
+func NewSearch(pos *Position, constraints *SearchConstraints, tt *TranspTable) *Search {
 	return &Search{
 		Root:             pos,
 		TT:               tt,
@@ -82,7 +80,7 @@ func (s *Search) Start() {
 		s.isHalted = true
 	}()
 	var lastResultTime = time.Now()
-	var line []*chess.Move
+	var line []Move
 	for {
 		s.ToNextDepth()
 
@@ -90,24 +88,29 @@ func (s *Search) Start() {
 			break
 		}
 
-		score := s.searchToDepth(s.Root, s.depth, -math.MaxFloat64, math.MaxFloat64)
+		var score int16
+		score, line = s.searchToDepth(s.Root, s.depth)
 		dt := time.Now().Sub(lastResultTime)
 		lastResultTime = time.Now()
-		out := fmt.Sprintf("info depth %d score %f", s.depth, score)
+		var out = fmt.Sprintf("info depth %d score ", s.depth)
+		if score == -MATE_VAL || score == MATE_VAL {
+			out += fmt.Sprintf("mate %d", s.depth)
+		} else {
+			out += fmt.Sprintf("%d", score)
+		}
 
-		line = s.BestLine(s.Root)
 		if PRINT_LINE {
 			var lineStr string
 			for moveIdx, move := range line {
 				if moveIdx == 0 {
-					lineStr += move.ToLongAlgebraic()
+					lineStr += move.String()
 				} else {
-					lineStr += " " + move.ToLongAlgebraic()
+					lineStr += " " + move.String()
 				}
 			}
 			out += fmt.Sprintf(" moves %s", lineStr)
 		} else {
-			out += fmt.Sprintf(" move %s", line[0].ToLongAlgebraic())
+			out += fmt.Sprintf(" move %s", line[0].String())
 		}
 
 		if PRINT_NODE_CNT {
@@ -129,105 +132,80 @@ func (s *Search) Start() {
 			out += fmt.Sprintf(" time %dms", dt.Milliseconds())
 		}
 		fmt.Println(out)
+
+		if score == -MATE_VAL || score == MATE_VAL {
+			break
+		}
 	}
 	if len(line) > 0 {
-		fmt.Printf("bestmove %s\n", line[0].ToLongAlgebraic())
+		fmt.Printf("bestmove %s\n", line[0].String())
 	}
 
 }
 
-func (s *Search) searchToDepth(pos *chess.Board, depth int, alpha float64, beta float64) float64 {
-	if depth == 0 || pos.Result != chess.BOARD_RESULT_IN_PROGRESS {
-		s.IncrNode()
-		return EvalPos(pos)
-	}
-
-	posHash := ZobristHashOnLegacyBoard(pos)
-	var anticipatedMove *chess.Move
-	if TRANSP_TABLE_LOOKUPS_ENABLED {
-		if ttEntry, _ := s.TT.GetEntry(posHash); ttEntry != nil {
-			s.hashHitsOnDepth++
-			if ttEntry.Depth >= depth {
-				return ttEntry.Score
-			} else {
-				anticipatedMove = ttEntry.Move
-			}
+func (s *Search) searchToDepth(pos *Position, depth uint8) (score int16, line []Move) {
+	if !pos.HasLegalMoves() {
+		if pos.IsMate() {
+			return -MATE_VAL, make([]Move, 0)
+		} else {
+			return DRAW_VAL, make([]Move, 0)
 		}
 	}
+	score, line = s._searchToDepth(pos, depth, -MATE_VAL, MATE_VAL)
+	ReverseSlice(line)
+	return score, line
+}
 
-	moves, err := chess.GetLegalMoves(pos)
-	if err != nil || len(moves) == 0 {
-		panic(fmt.Sprintf("could not get legal moves from pos %s: %s", pos, err))
+func (s *Search) _searchToDepth(pos *Position, depth uint8, alpha int16, beta int16) (score int16, line []Move) {
+	if depth == 0 || pos.result != RESULT_IN_PROGRESS {
+		if pos.IsMate() {
+			return -MATE_VAL, nil
+		}
+		s.IncrNode()
+		return EvalPos(pos), nil
 	}
-	if MOVE_SORT_ENABLED {
-		moves = SortMoves(pos, moves, anticipatedMove)
-	}
-	var bestMove *chess.Move
-	var bestScore float64
-	for moveIdx, move := range moves {
-		if s.isHalted {
+
+	iter := NewLegalMoveIter(pos)
+	score = -MATE_VAL
+	for {
+		move, done := iter.Next()
+		if done {
 			break
 		}
-		newPos := chess.GetBoardFromMove(pos, move)
-		score := s.searchToDepth(newPos, depth-1, alpha, beta)
-		if pos.IsWhiteTurn {
-			if score > alpha {
-				alpha = score
-				bestScore = alpha
-				bestMove = move
-				if ALPHA_BETA_PRUNING_ENABLED && score >= beta {
-					// black would not allow `pos`
-					prunedCnt := len(moves) - moveIdx - 1
-					s.TallyPrune(depth, prunedCnt)
-					break
-				}
-			}
-		} else { // black turn
-			if score < beta {
-				beta = score
-				bestScore = beta
-				bestMove = move
-				if ALPHA_BETA_PRUNING_ENABLED && score <= alpha {
-					// white would not allow `pos`
-					prunedCnt := len(moves) - moveIdx - 1
-					s.TallyPrune(depth, prunedCnt)
-					break
-				}
+
+		captPiece, lastFrozenPos := pos.MakeMove(move)
+
+		moveScore, moveLine := s._searchToDepth(pos, depth-1, -beta, -alpha)
+		moveScore = -moveScore
+		if moveScore > alpha {
+			alpha = moveScore
+			score = moveScore
+			if moveLine == nil {
+				line = []Move{move}
+			} else {
+				line = append(moveLine, move)
 			}
 		}
-	}
-	s.TT.PostResults(posHash, bestScore, bestMove, depth)
 
-	return bestScore
+		pos.UnmakeMove(move, lastFrozenPos, captPiece)
+
+		if ALPHA_BETA_PRUNING_ENABLED && moveScore >= beta {
+			return
+		}
+	}
+	return
 }
 
 func (s *Search) MaxSearchMs() int {
-	var msForSearch = func(pos *chess.Board, bankMs int, incrMs int) int {
+	var msForSearch = func(pos *Position, bankMs int, incrMs int) int {
 		expMoves := ExpMoves(pos)
 		return incrMs + bankMs/expMoves
 	}
 	maxSearchMs := s.Constraints.MaxSearchMs()
-	if s.Root.IsWhiteTurn && s.Constraints.whiteMs > 0 {
+	if s.Root.isWhiteTurn && s.Constraints.whiteMs > 0 {
 		maxSearchMs = MinInt(maxSearchMs, msForSearch(s.Root, s.Constraints.whiteMs, s.Constraints.whiteIncrMs))
-	} else if !s.Root.IsWhiteTurn && s.Constraints.blackMs > 0 {
+	} else if !s.Root.isWhiteTurn && s.Constraints.blackMs > 0 {
 		maxSearchMs = MinInt(maxSearchMs, msForSearch(s.Root, s.Constraints.blackMs, s.Constraints.blackIncrMs))
 	}
 	return maxSearchMs
-}
-
-func (s *Search) BestLine(pos *chess.Board) []*chess.Move {
-	rtn := make([]*chess.Move, 0)
-	var ttEntry *TTEntry
-	for {
-		ttEntry, _ = s.TT.GetEntry(ZobristHashOnLegacyBoard(pos))
-		if ttEntry == nil {
-			break
-		}
-		if ttEntry.Move == nil {
-			break
-		}
-		rtn = append(rtn, ttEntry.Move)
-		pos = chess.GetBoardFromMove(pos, ttEntry.Move)
-	}
-	return rtn
 }

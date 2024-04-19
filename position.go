@@ -30,6 +30,7 @@ type Position struct {
 	hash           ZHash
 	result         Result // only covers non-checkmate/stalemate positions
 	isWhiteTurn    bool
+	isKingChecked  bool
 
 	frozenPos *FrozenPos
 }
@@ -411,6 +412,22 @@ func (p *Position) UnmakeMove(move Move, fp *FrozenPos, captured Piece) {
 
 	p.isWhiteTurn = !p.isWhiteTurn
 	p.hash = p.hash.ToggleTurn()
+}
+
+func (p *Position) IsKingChecked() bool {
+	color := NewColor(p.isWhiteTurn)
+	piece := NewPiece(KING, color)
+	sq := p.pieceBitboards[piece].FirstSq()
+	return p.isSquareAttacked(color.Opp(), sq)
+}
+
+func (p *Position) IsMate() bool {
+	return p.IsKingChecked() && !p.HasLegalMoves()
+}
+
+func (p *Position) HasLegalMoves() bool {
+	_, hasNoLegalMoves := NewLegalMoveIter(p).Next()
+	return !hasNoLegalMoves
 }
 
 func (p *Position) doCastle(move Move) {
