@@ -1,7 +1,5 @@
 package main
 
-import "github.com/CameronHonis/chess"
-
 const (
 	PAWN_VAL   = 100
 	KNIGHT_VAL = 280
@@ -37,33 +35,15 @@ func ExpMoves(pos *Position) int {
 	return MaxInt(80-int(pos.ply), 30)
 }
 
-func PieceValue(piece chess.Piece) int {
-	if piece.IsPawn() {
-		return PAWN_VAL
-	} else if piece.IsKnight() {
-		return KNIGHT_VAL
-	} else if piece.IsBishop() {
-		return BISHOP_VAL
-	} else if piece.IsRook() {
-		return ROOK_VAL
-	} else if piece.IsQueen() {
-		return QUEEN_VAL
-	} else if piece.IsKing() {
-		return MATE_VAL
-	} else {
-		return 0
-	}
-}
-
-func SortMoves(pos *chess.Board, moves []*chess.Move, anticipated *chess.Move) []*chess.Move {
+func SortMoves(pos *Position, moves []Move, anticipated Move) []Move {
 	// quicksort impl
 	if len(moves) == 1 {
 		return moves
 	} else if len(moves) == 2 {
-		if anticipated != nil {
-			if anticipated.Equal(moves[0]) {
+		if anticipated != NULL_MOVE {
+			if anticipated == moves[0] {
 				return moves
-			} else if anticipated.Equal(moves[1]) {
+			} else if anticipated == moves[1] {
 				Swap(moves, 0, 1)
 				return moves
 			}
@@ -80,14 +60,14 @@ func SortMoves(pos *chess.Board, moves []*chess.Move, anticipated *chess.Move) [
 	var leftIdx = 0
 	var rightIdx = 0
 	var rtnIdx = 0
-	rtn := make([]*chess.Move, len(left)+len(right))
+	rtn := make([]Move, len(left)+len(right))
 	for leftIdx < len(left) && rightIdx < len(right) {
 		leftMove := left[leftIdx]
 		rightMove := right[rightIdx]
-		if anticipated != nil && anticipated.Equal(leftMove) {
+		if anticipated != NULL_MOVE && anticipated == leftMove {
 			rtn[rtnIdx] = leftMove
 			leftIdx++
-		} else if anticipated != nil && anticipated.Equal(rightMove) {
+		} else if anticipated != NULL_MOVE && anticipated == rightMove {
 			rtn[rtnIdx] = rightMove
 			rightIdx++
 		} else if compareMoves(pos, leftMove, rightMove) {
@@ -113,21 +93,40 @@ func SortMoves(pos *chess.Board, moves []*chess.Move, anticipated *chess.Move) [
 }
 
 // compareMoves returns true if the first move (moveA) is expected to be better than the second (moveB)
-func compareMoves(pos *chess.Board, moveA, moveB *chess.Move) bool {
+func compareMoves(pos *Position, moveA, moveB Move) bool {
 	return EvalMove(pos, moveA) >= EvalMove(pos, moveB)
 }
 
 const (
+	// CHECK_VALUE is unintuitively high. uses the age-old adage "always look for checks, captures, then attacks"
 	CHECK_VALUE = 900
 )
 
-func EvalMove(pos *chess.Board, move *chess.Move) int {
-	// uses the age-old adage "always look for checks, captures, then attacks"
-	var moveVal = 0
-	if move.PawnUpgradedTo != chess.EMPTY {
-		moveVal += PieceValue(move.PawnUpgradedTo) - PAWN_VAL
+func EvalMove(pos *Position, move Move) int16 {
+	var moveVal int16
+	moveVal += PieceTypeToVal(move.PromotedTo())
+
+	captPiece, lastFrozenPos := pos.MakeMove(move)
+	defer pos.UnmakeMove(move, lastFrozenPos, captPiece)
+	if pos.IsKingChecked() {
+		moveVal += CHECK_VALUE
 	}
-	moveVal += CHECK_VALUE * len(move.KingCheckingSquares)
-	moveVal += PieceValue(move.CapturedPiece)
+
+	moveVal += PieceTypeToVal(captPiece.Type())
 	return moveVal
+}
+
+func PieceTypeToVal(pt PieceType) int16 {
+	if pt == PAWN {
+		return PAWN_VAL
+	} else if pt == KNIGHT {
+		return KNIGHT_VAL
+	} else if pt == BISHOP {
+		return BISHOP_VAL
+	} else if pt == ROOK {
+		return ROOK_VAL
+	} else if pt == QUEEN {
+		return QUEEN_VAL
+	}
+	return 0
 }

@@ -166,6 +166,10 @@ func (s *Search) _searchToDepth(pos *Position, depth uint8, alpha int16, beta in
 	}
 
 	iter := NewLegalMoveIter(pos)
+	if MOVE_SORT_ENABLED {
+		iter.pMoves = SortMoves(pos, iter.pMoves, NULL_MOVE)
+	}
+
 	score = -MATE_VAL
 	for {
 		move, done := iter.Next()
