@@ -1,6 +1,8 @@
 package main
 
-import "log"
+import (
+	"log"
+)
 
 type LegalMoveIter struct {
 	pos    *Position
@@ -9,8 +11,10 @@ type LegalMoveIter struct {
 }
 
 func NewLegalMoveIter(pos *Position) *LegalMoveIter {
+	pMoves := GenPseudoLegalMoves(pos)
 	return &LegalMoveIter{
-		pMoves: GenPseudoLegalMoves(pos),
+		pos:    pos,
+		pMoves: pMoves,
 		idx:    0,
 	}
 }
@@ -31,6 +35,9 @@ func GenPseudoLegalMoves(pos *Position) []Move {
 	rtn := make([]Move, 0)
 	for sq := SQ_A1; sq < N_SQUARES; sq++ {
 		piece := pos.pieces[sq]
+		if piece.IsWhite() != pos.isWhiteTurn || piece == EMPTY {
+			continue
+		}
 		pt := piece.Type()
 		if pt == PAWN {
 			moves := GenPseudoLegalPawnMoves(pos, sq)
@@ -101,7 +108,6 @@ func GenPseudoLegalPawnMoves(pos *Position, sq Square) []Move {
 			rtn = append(rtn, NewNormalMove(sq, sqTwoInFront))
 		}
 	}
-	rtn = append(rtn, NewNormalMove(sq, sqInFront))
 	return rtn
 }
 
@@ -110,7 +116,7 @@ func GenPseudoLegalNimblePieceMoves(pos *Position, sq Square) []Move {
 	pt := piece.Type()
 	if DEBUG {
 		if pt != KNIGHT && pt != BISHOP && pt != ROOK && pt != QUEEN {
-			log.Fatalf("cannot generate nimble piece move for piece on %d in pos:\n%s", sq, pos)
+			log.Fatalf("cannot generate nimble piece move for piece on %s in pos:\n%s", sq, pos)
 		}
 	}
 	var attackBB Bitboard
@@ -137,7 +143,7 @@ func GenPseudoLegalKingMoves(pos *Position, sq Square) []Move {
 	piece := pos.pieces[sq]
 	if DEBUG {
 		if piece.Type() != KING {
-			log.Fatalf("cannot generate king moves for non-king piece on %d in pos:\n%s", sq, pos)
+			log.Fatalf("cannot generate king moves for non-king piece on %s in pos:\n%s", sq, pos)
 		}
 	}
 	attackBB := KingAttacksBB(sq)
@@ -171,7 +177,7 @@ func GenPseudoLegalKingMoves(pos *Position, sq Square) []Move {
 		}
 	}
 	if canCastleQS {
-		castlePathMask := BBWithSquares(sq-1, sq-2)
+		castlePathMask := BBWithSquares(sq-1, sq-2, sq-3)
 		if occupiedBB&castlePathMask == 0 {
 			rtn = append(rtn, NewMove(sq, sq-2, NULL_SQ, EMPTY_PIECE_TYPE, true))
 		}
@@ -187,11 +193,13 @@ func SlidingAttacksBB(occupied Bitboard, sq Square, pt PieceType) Bitboard {
 		file := sq.File()
 		rankMask := BBWithRank(rank, 0b11111111)
 		occupiedRankBB := occupied & rankMask
-		rtn |= rankAttacks[occupiedRankBB][file-1]
+		rankAttackBB := rankAttacks[occupiedRankBB][file-1]
+		rtn |= rankAttackBB
 
 		fileMask := BBWithFile(file, 0b11111111)
 		occupiedFileBB := occupied & fileMask
-		rtn |= fileAttacks[occupiedFileBB][rank-1]
+		fileAttackBB := fileAttacks[occupiedFileBB][rank-1]
+		rtn |= fileAttackBB
 	}
 	if pt == BISHOP || pt == QUEEN {
 		posDiagMask := BBWithPosDiag(sq.PosDiagIdx(), 0b11111111)
