@@ -19,6 +19,7 @@
 
 # Go workspace file
 go.work
+*.prof
 
 # Intellij flavored IDEs
 .idea/
