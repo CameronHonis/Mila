@@ -1,6 +1,9 @@
 package main
 
-import "log"
+import (
+	"fmt"
+	"log"
+)
 
 type MoveType uint8
 
@@ -92,6 +95,9 @@ func (m Move) EndSq() Square {
 }
 
 func (m Move) PromotedTo() PieceType {
+	if m.Type() != PAWN_PROMOTION {
+		return EMPTY_PIECE_TYPE
+	}
 	return PieceType((m>>2)&0b11) + KNIGHT
 }
 
@@ -101,6 +107,20 @@ func (m Move) Type() MoveType {
 
 func (m Move) IsNull() bool {
 	return m == 0
+}
+
+func (m Move) String() string {
+	if m.PromotedTo() == KNIGHT {
+		return fmt.Sprintf("%s%sn", m.StartSq(), m.EndSq())
+	} else if m.PromotedTo() == BISHOP {
+		return fmt.Sprintf("%s%sb", m.StartSq(), m.EndSq())
+	} else if m.PromotedTo() == ROOK {
+		return fmt.Sprintf("%s%sr", m.StartSq(), m.EndSq())
+	} else if m.PromotedTo() == QUEEN {
+		return fmt.Sprintf("%s%sq", m.StartSq(), m.EndSq())
+	} else {
+		return fmt.Sprintf("%s%s", m.StartSq(), m.EndSq())
+	}
 }
 
 const NULL_MOVE = Move(0)
