@@ -30,7 +30,6 @@ type Position struct {
 	hash           ZHash
 	result         Result // only covers non-checkmate/stalemate positions
 	isWhiteTurn    bool
-	isKingChecked  bool
 
 	frozenPos *FrozenPos
 }
@@ -657,26 +656,10 @@ func (p *Position) isSquareAttacked(attackColor Color, sq Square) bool {
 	return false
 }
 
+// TODO: optimize this using pins
 func (p *Position) givesCheck(move Move) bool {
-	end := move.EndSq()
-	piece := p.pieces[move.StartSq()]
-	pt := piece.Type()
-	color := piece.Color()
+	captPiece, lastFrozenPos := p.MakeMove(move)
+	defer p.UnmakeMove(move, lastFrozenPos, captPiece)
 
-	var attacksBB Bitboard
-	if pt == PAWN {
-		attacksBB = PawnAttacksBB(end, color)
-	} else if pt == KNIGHT {
-		attacksBB = KnightAttacksBB(end)
-	} else if pt == BISHOP || pt == ROOK || pt == QUEEN {
-		attacksBB = SlidingAttacksBB(p.OccupiedBB(), end, pt)
-	} else {
-		attacksBB = KingAttacksBB(end)
-	}
-
-	if color == WHITE {
-		return p.pieceBitboards[B_KING]&attacksBB > 0
-	} else {
-		return p.pieceBitboards[W_KING]&attacksBB > 0
-	}
+	return p.IsKingChecked()
 }

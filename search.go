@@ -67,7 +67,7 @@ func (s *Search) ToNextDepth() {
 }
 
 func (s *Search) TallyPrune(parDepth, cnt int) {
-	idx := len(s.pruneCntsOnDepth) - parDepth
+	idx := len(s.pruneCntsOnDepth) - int(parDepth)
 	s.pruneCntsOnDepth[idx] += cnt
 }
 
@@ -190,6 +190,7 @@ func (s *Search) _searchToDepth(pos *Position, depth uint8, alpha int16, beta in
 		pos.UnmakeMove(move, lastFrozenPos, captPiece)
 
 		if ALPHA_BETA_PRUNING_ENABLED && moveScore >= beta {
+			s.TallyPrune(int(depth), len(iter.pMoves)-1-iter.idx)
 			return
 		}
 	}
