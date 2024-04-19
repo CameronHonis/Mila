@@ -76,6 +76,10 @@ var _ = Describe("Position", func() {
 			fen := InitPos().FEN()
 			Expect(fen).To(Equal("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"))
 		})
+		It("serializes a position with a lot of empty squares", func() {
+			pos, _ := FromFEN("4k3/3ppp2/8/2Q5/6N1/5K2/8/8 w - - 0 1")
+			Expect(pos.FEN()).To(Equal("4k3/3ppp2/8/2Q5/6N1/5K2/8/8 w - - 0 1"))
+		})
 	})
 	Describe("::MakeMove", func() {
 		var pos *Position

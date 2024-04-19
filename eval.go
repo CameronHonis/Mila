@@ -37,7 +37,7 @@ func ExpMoves(pos *Position) int {
 
 func SortMoves(pos *Position, moves []Move, anticipated Move) []Move {
 	// quicksort impl
-	if len(moves) == 1 {
+	if len(moves) < 2 {
 		return moves
 	} else if len(moves) == 2 {
 		if anticipated != NULL_MOVE {

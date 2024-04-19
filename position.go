@@ -239,6 +239,7 @@ func (p *Position) FEN() string {
 			} else {
 				if consecSpaces > 0 {
 					rtnBuilder.WriteByte(byte('0' + consecSpaces))
+					consecSpaces = 0
 				}
 				rtnBuilder.WriteByte(piece.Char())
 			}
