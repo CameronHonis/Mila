@@ -106,10 +106,10 @@ func NewZHash(pos *Position) ZHash {
 
 func (zh ZHash) UpdatePieceOnSq(prevPiece, piece Piece, sq Square) ZHash {
 	if prevPiece != EMPTY {
-		zh ^= lookups.PieceKeys[sq][prevPiece]
+		zh ^= lookups.PieceKeys[sq][prevPiece-1]
 	}
 	if piece != EMPTY {
-		zh ^= lookups.PieceKeys[sq][piece]
+		zh ^= lookups.PieceKeys[sq][piece-1]
 	}
 	return zh
 }
