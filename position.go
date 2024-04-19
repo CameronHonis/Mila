@@ -296,10 +296,7 @@ func (p *Position) FEN() string {
 
 func (p *Position) OccupiedBB() Bitboard {
 	var rtn Bitboard
-	for colorIdx, colorBB := range p.colorBitboards {
-		if colorIdx == 0 {
-			continue
-		}
+	for _, colorBB := range p.colorBitboards {
 		rtn ^= colorBB
 	}
 	return rtn
@@ -309,47 +306,28 @@ func (p *Position) OccupiedBB() Bitboard {
 func (p *Position) IsLegalMove(pMove Move) bool {
 	piece := p.pieces[pMove.StartSq()]
 	pt := piece.Type()
-	isWhite := piece.IsWhite()
+	color := piece.Color()
 
-	var selfColor Color
-	var oppColor Color
-	if isWhite {
-		selfColor = WHITE
-		oppColor = BLACK
-	} else {
-		selfColor = WHITE
-		oppColor = WHITE
-	}
-
-	if pt == KING {
-		if pMove.Type() == CASTLING {
-			start := pMove.StartSq()
-			end := pMove.EndSq()
-			sq0 := start
-			var sq1 Square
-			if end > start {
-				sq1 = sq0 + 1
-			} else {
-				sq1 = sq0 - 1
-			}
-			sq2 := end
-			return p.isSquareAttacked(oppColor, sq0) ||
-				p.isSquareAttacked(oppColor, sq1) ||
-				p.isSquareAttacked(oppColor, sq2)
+	if pt == KING && pMove.Type() == CASTLING {
+		start := pMove.StartSq()
+		end := pMove.EndSq()
+		sq0 := start
+		var sq1 Square
+		if end > start {
+			sq1 = sq0 + 1
 		} else {
-			return p.isSquareAttacked(oppColor, pMove.EndSq())
+			sq1 = sq0 - 1
 		}
+		sq2 := end
+		return !p.isSquareAttacked(color.Opp(), sq0) &&
+			!p.isSquareAttacked(color.Opp(), sq1) &&
+			!p.isSquareAttacked(color.Opp(), sq2)
 	} else {
-		kingSq := p.pieceBitboards[NewPiece(KING, selfColor)].FirstSq()
-		if p.isSquareAttacked(oppColor, kingSq) {
-			return true
-		}
-
 		capturedPiece, fPos := p.MakeMove(pMove)
+		kingSq := p.pieceBitboards[NewPiece(KING, color)].FirstSq()
 		defer p.UnmakeMove(pMove, fPos, capturedPiece)
 
-		kingSq = p.pieceBitboards[NewPiece(KING, selfColor)].FirstSq()
-		return p.isSquareAttacked(oppColor, kingSq)
+		return !p.isSquareAttacked(color.Opp(), kingSq)
 	}
 }
 
@@ -601,15 +579,20 @@ func (p *Position) updateFrozenPos(move Move) {
 				fp.CastleRights[B_CASTLE_QUEENSIDE_RIGHT] = false
 			}
 		}
-	} else if (start == SQ_A1 || end == SQ_A1) && fp.CastleRights[W_CASTLE_QUEENSIDE_RIGHT] {
-		fp.CastleRights[W_CASTLE_QUEENSIDE_RIGHT] = false
-	} else if (start == SQ_H1 || end == SQ_H1) && fp.CastleRights[W_CASTLE_KINGSIDE_RIGHT] {
-		fp.CastleRights[W_CASTLE_KINGSIDE_RIGHT] = false
-	} else if (start == SQ_A8 || end == SQ_A8) && fp.CastleRights[B_CASTLE_QUEENSIDE_RIGHT] {
-		fp.CastleRights[B_CASTLE_QUEENSIDE_RIGHT] = false
-	} else if (start == SQ_H8 || end == SQ_H8) && fp.CastleRights[B_CASTLE_KINGSIDE_RIGHT] {
-		fp.CastleRights[B_CASTLE_KINGSIDE_RIGHT] = false
-	} else if pt == PAWN {
+	}
+	if fp.CastleRights[W_CASTLE_QUEENSIDE_RIGHT] {
+		fp.CastleRights[W_CASTLE_QUEENSIDE_RIGHT] = !(start == SQ_A1 || end == SQ_A1)
+	}
+	if fp.CastleRights[W_CASTLE_KINGSIDE_RIGHT] {
+		fp.CastleRights[W_CASTLE_KINGSIDE_RIGHT] = !(start == SQ_H1 || end == SQ_H1)
+	}
+	if fp.CastleRights[B_CASTLE_QUEENSIDE_RIGHT] {
+		fp.CastleRights[B_CASTLE_QUEENSIDE_RIGHT] = !(start == SQ_A8 || end == SQ_A8)
+	}
+	if fp.CastleRights[B_CASTLE_KINGSIDE_RIGHT] {
+		fp.CastleRights[B_CASTLE_KINGSIDE_RIGHT] = !(start == SQ_H8 || end == SQ_H8)
+	}
+	if pt == PAWN {
 		if start.Rank() == 2 && end.Rank() == 4 {
 			fp.EnPassantSq = SqFromCoords(3, int(end.File()))
 		} else if start.Rank() == 7 && end.Rank() == 5 {
@@ -619,73 +602,41 @@ func (p *Position) updateFrozenPos(move Move) {
 }
 
 func (p *Position) isSquareAttacked(attackColor Color, sq Square) bool {
+	pawnAttacksBB := PawnAttacksBB(sq, attackColor.Opp())
+	var attackPiece = NewPiece(PAWN, attackColor)
+	if pawnAttacksBB&p.pieceBitboards[attackPiece] != 0 {
+		return true
+	}
 	knightAttacksBB := KnightAttacksBB(sq)
-	if attackColor == WHITE {
-		if knightAttacksBB&p.pieceBitboards[W_KNIGHT] != 0 {
-			return true
-		}
-	} else {
-		if knightAttacksBB&p.pieceBitboards[B_KNIGHT] != 0 {
-			return true
-		}
+	attackPiece = NewPiece(KNIGHT, attackColor)
+	if knightAttacksBB&p.pieceBitboards[attackPiece] != 0 {
+		return true
+	}
+	kingAttacksBB := KingAttacksBB(sq)
+	attackPiece = NewPiece(KING, attackColor)
+	if kingAttacksBB&p.pieceBitboards[attackPiece] != 0 {
+		return true
 	}
 	occupiedBB := p.OccupiedBB()
 	diagAttacksBB := SlidingAttacksBB(occupiedBB, sq, BISHOP)
-	if attackColor == WHITE {
-		if diagAttacksBB&p.pieceBitboards[W_BISHOP] != 0 {
-			return true
-		}
-		if diagAttacksBB&p.pieceBitboards[W_QUEEN] != 0 {
-			return true
-		}
-	} else {
-		if diagAttacksBB&p.pieceBitboards[B_BISHOP] != 0 {
-			return true
-		}
-		if diagAttacksBB&p.pieceBitboards[B_QUEEN] != 0 {
-			return true
-		}
+	attackPiece = NewPiece(BISHOP, attackColor)
+	if diagAttacksBB&p.pieceBitboards[attackPiece] != 0 {
+		return true
+	}
+	attackPiece = NewPiece(QUEEN, attackColor)
+	if diagAttacksBB&p.pieceBitboards[attackPiece] != 0 {
+		return true
 	}
 	straightAttacks := SlidingAttacksBB(occupiedBB, sq, ROOK)
-	if attackColor == WHITE {
-		if straightAttacks&p.pieceBitboards[W_ROOK] != 0 {
-			return true
-		}
-		if straightAttacks&p.pieceBitboards[W_QUEEN] != 0 {
-			return true
-		}
-	} else {
-		if straightAttacks&p.pieceBitboards[B_ROOK] != 0 {
-			return true
-		}
-		if straightAttacks&p.pieceBitboards[B_QUEEN] != 0 {
-			return true
-		}
+	attackPiece = NewPiece(ROOK, attackColor)
+	if straightAttacks&p.pieceBitboards[attackPiece] != 0 {
+		return true
+	}
+	attackPiece = NewPiece(QUEEN, attackColor)
+	if straightAttacks&p.pieceBitboards[attackPiece] != 0 {
+		return true
 	}
 
-	file := sq.File()
-	if file > 1 {
-		if attackColor == WHITE {
-			if p.pieces[sq-9] == W_PAWN {
-				return true
-			}
-		} else {
-			if p.pieces[sq+7] == B_PAWN {
-				return true
-			}
-		}
-	}
-	if file < 8 {
-		if attackColor == WHITE {
-			if p.pieces[sq-7] == W_PAWN {
-				return true
-			}
-		} else {
-			if p.pieces[sq+9] == B_PAWN {
-				return true
-			}
-		}
-	}
 	return false
 }
 

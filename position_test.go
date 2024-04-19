@@ -355,4 +355,36 @@ var _ = Describe("Position", func() {
 			})
 		})
 	})
+	Describe("::IsLegalMove", func() {
+		When("the move is a king move", func() {
+			When("the king is in check and 'walks the line of sight'", func() {
+				It("returns false", func() {
+					pos, _ := FromFEN("rnb1kbnr/pp1ppppp/8/q1p5/8/3P4/PPPKPPPP/RNBQ1BNR w kq - 0 1")
+					move := NewNormalMove(SQ_D2, SQ_E1)
+					Expect(pos.IsLegalMove(move)).To(BeFalse())
+				})
+			})
+			When("the king walks into a knight check", func() {
+				It("returns false", func() {
+					pos, _ := FromFEN("rnbqkbnr/pppp1ppp/8/3Np3/8/8/PPPPPPPP/R1BQKBNR b KQkq - 0 1")
+					move := NewNormalMove(SQ_E8, SQ_E7)
+					Expect(pos.IsLegalMove(move)).To(BeFalse())
+				})
+			})
+			When("the king castles into check", func() {
+				It("returns false", func() {
+					pos, _ := FromFEN("r3k2r/p1ppqpb1/Bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPB1PPP/R3K2R b KQkq - 0 1")
+					move := NewMove(SQ_E8, SQ_C8, NULL_SQ, EMPTY_PIECE_TYPE, true)
+					Expect(pos.IsLegalMove(move)).To(BeFalse())
+				})
+			})
+			When("the king walks into a pawn check", func() {
+				It("returns false", func() {
+					pos, _ := FromFEN("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q2/PPPBBPpP/1R2K2R w Kkq - 0 1")
+					move := NewNormalMove(SQ_E1, SQ_F1)
+					Expect(pos.IsLegalMove(move)).To(BeFalse())
+				})
+			})
+		})
+	})
 })
