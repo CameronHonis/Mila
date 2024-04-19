@@ -391,6 +391,26 @@ func (m *Material) nBDarkBishops() uint8 {
 	return m[9]
 }
 
+func (m *Material) pawnDiff() int16 {
+	return int16(m[0]) - int16(m[6])
+}
+
+func (m *Material) knightDiff() int16 {
+	return int16(m[1]) - int16(m[7])
+}
+
+func (m *Material) bishopDiff() int16 {
+	return int16(m[2]) + int16(m[3]) - int16(m[8]) - int16(m[9])
+}
+
+func (m *Material) rookDiff() int16 {
+	return int16(m[4]) - int16(m[10])
+}
+
+func (m *Material) queenDiff() int16 {
+	return int16(m[5]) - int16(m[11])
+}
+
 func (m *Material) pieceToMatIdx(piece Piece, sq Square) uint {
 	if piece == W_PAWN {
 		return 0
