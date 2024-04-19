@@ -46,14 +46,31 @@ func Swap[T interface{}](slice []T, i, j int) {
 	slice[j] = temp
 }
 
-func BitboardsSideBySide(bb1, bb2 Bitboard) string {
-	bb1Strs := strings.Split(bb1.String(), "\n")
-	bb2Strs := strings.Split(bb2.String(), "\n")
+func ConcatBitboards(bbs ...Bitboard) string {
+	bbStrs := make([]string, len(bbs))
+	for i, bb := range bbs {
+		bbStrs[i] = bb.String()
+	}
+	return ConcatStringsHorizontally(bbStrs...)
+}
+
+func ConcatStringsHorizontally(multiLineStrs ...string) string {
 	builder := strings.Builder{}
-	for i := 0; i < len(bb1Strs); i++ {
-		builder.WriteString(bb1Strs[i])
-		builder.WriteString("    ")
-		builder.WriteString(bb2Strs[i])
+	splitLineStrs := make([][]string, 0)
+	var maxRows int
+	for _, multiLineStr := range multiLineStrs {
+		splitLineStr := strings.Split(multiLineStr, "\n")
+		splitLineStrs = append(splitLineStrs, splitLineStr)
+		if len(splitLineStr) > maxRows {
+			maxRows = len(splitLineStr)
+		}
+	}
+	for row := 0; row < maxRows; row++ {
+		for _, splitLineStr := range splitLineStrs {
+			if row < len(splitLineStr) {
+				builder.WriteString(splitLineStr[row])
+			}
+		}
 		builder.WriteByte('\n')
 	}
 	return builder.String()
