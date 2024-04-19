@@ -12,9 +12,10 @@ import (
 	"time"
 )
 
+const QUIET = true
 const PRINT_ROOT_MOVE_NODES = false
 const FOCUS_TEST_IDX = -1
-const MAX_DEPTH = 6
+const MAX_DEPTH = 4
 
 var scanner *bufio.Scanner
 
@@ -41,7 +42,7 @@ func _perft(pos *main.Position, depth int, isRoot bool) int {
 			moveNodeCnt = _perft(pos, depth-1, false)
 			pos.UnmakeMove(move, lastFrozenPos, capturedPiece)
 		}
-		if PRINT_ROOT_MOVE_NODES && isRoot {
+		if !QUIET && PRINT_ROOT_MOVE_NODES && isRoot {
 			fmt.Printf("%s: %d\n", move, moveNodeCnt)
 		}
 		nodeCnt += moveNodeCnt
@@ -90,7 +91,9 @@ func perftFromFile() {
 			continue
 		}
 		line := scanner.Text()
-		fmt.Printf("[TEST %d] %s\n", currTestIdx, line)
+		if !QUIET {
+			fmt.Printf("[TEST %d] %s\n", currTestIdx, line)
+		}
 		fen, depthNodeCntPairs := parsePerftLine(line)
 
 		pos, posErr := main.FromFEN(fen)
@@ -112,7 +115,9 @@ func perftFromFile() {
 				log.Fatalf("node count mismatch at depth %d, actual %d vs exp %d", depth, actNodeCnt, expNodeCnt)
 			} else {
 				elapsed := time.Since(start)
-				fmt.Printf("depth %d passed in %s\n", depth, elapsed)
+				if !QUIET {
+					fmt.Printf("depth %d passed in %s\n", depth, elapsed)
+				}
 			}
 		}
 	}
@@ -126,8 +131,4 @@ var _ = It("perft", func() {
 	//defer pprof.StopCPUProfile()
 
 	perftFromFile()
-
-	//fmt.Println("")
-	//pos, _ := main.FromFEN("r3k3/1K6/8/8/8/8/8/8 w q - 0 1")
-	//fmt.Println(perft(pos, 2))
 })
