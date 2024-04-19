@@ -244,6 +244,14 @@ const (
 	N_COLORS
 )
 
+func (c Color) Opp() Color {
+	if c == WHITE {
+		return BLACK
+	} else {
+		return WHITE
+	}
+}
+
 type Ply uint
 
 func PlyFromNMoves(nMoves uint, isWhiteTurn bool) Ply {
