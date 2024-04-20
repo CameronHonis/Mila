@@ -1,13 +1,13 @@
 package main
 
 const (
-	PAWN_VAL   = 100
-	KNIGHT_VAL = 280
-	BISHOP_VAL = 320
-	ROOK_VAL   = 500
-	QUEEN_VAL  = 950
-	MATE_VAL   = 10000
-	DRAW_VAL   = -50
+	PAWN_VAL   = int16(100)
+	KNIGHT_VAL = int16(280)
+	BISHOP_VAL = int16(320)
+	ROOK_VAL   = int16(500)
+	QUEEN_VAL  = int16(950)
+	MATE_VAL   = int16(10000)
+	DRAW_VAL   = int16(-50)
 )
 
 func EvalPos(pos *Position) int16 {
@@ -22,11 +22,9 @@ func EvalPos(pos *Position) int16 {
 	} else {
 		return -eval
 	}
-	// TODO: attacks (direct and/or discoveries) - Maybe too slow to justify?
 
-	// TODO: positional eval (square value by piece lookups and castling)
-
-	// TODO: passed pawns
+	// TODO: consider material placement - towards center usually is good
+	// TODO: consider passed pawns
 }
 
 func ExpMoves(pos *Position) int {
@@ -98,7 +96,6 @@ func compareMoves(pos *Position, moveA, moveB Move) bool {
 }
 
 const (
-	// CHECK_VALUE is unintuitively high. uses the age-old adage "always look for checks, captures, then attacks"
 	CHECK_VALUE = 900
 )
 
@@ -106,6 +103,7 @@ func EvalMove(pos *Position, move Move) int16 {
 	var moveVal int16
 	moveVal += PieceTypeToVal(move.PromotedTo())
 
+	// TODO: factor in checks once captures are fast to determine (pins)
 	//captPiece, lastFrozenPos := pos.MakeMove(move)
 	//defer pos.UnmakeMove(move, lastFrozenPos, captPiece)
 	//if pos.IsKingChecked() {

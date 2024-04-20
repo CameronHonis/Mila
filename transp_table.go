@@ -16,16 +16,25 @@ func NewTranspTable() *TranspTable {
 	}
 }
 
-func (tt *TranspTable) PostResults(hash ZHash, score int16, move Move, depth uint8) {
+func (tt *TranspTable) PostResults(hash ZHash, score int16, isLowerBound bool, move Move, depth uint8) {
 	tt.mu.Lock()
 	defer tt.mu.Unlock()
 	prevEntry, ok := tt.entryByHash[hash]
-	if !ok || depth > prevEntry.Depth || (depth == prevEntry.Depth && score > prevEntry.Score) {
-		tt.entryByHash[hash] = TTEntry{
-			Score: score,
-			Depth: depth,
-			Move:  move,
+	if ok {
+		if prevEntry.Depth > depth {
+			return
 		}
+		isBetterEst := !prevEntry.IsExact() && !isLowerBound
+		if prevEntry.Depth == depth && !isBetterEst {
+			return
+		}
+	}
+
+	tt.entryByHash[hash] = TTEntry{
+		Score:        score,
+		IsLowerBound: isLowerBound,
+		Depth:        depth,
+		Move:         move,
 	}
 }
 
@@ -71,8 +80,15 @@ func (tt *TranspTable) Line(pos *Position, depth uint8) []Move {
 	return line
 }
 
+type TTEntryType uint8
+
 type TTEntry struct {
-	Score int16
-	Depth uint8
-	Move  Move
+	Score        int16
+	IsLowerBound bool
+	Depth        uint8
+	Move         Move
+}
+
+func (e *TTEntry) IsExact() bool {
+	return !e.IsLowerBound
 }

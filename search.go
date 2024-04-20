@@ -177,8 +177,16 @@ func (s *Search) _searchToDepth(pos *Position, depth uint8, alpha int16, beta in
 		if exists {
 			s.hashHitsOnDepth++
 			if entry.Depth >= depth {
-				return entry.Score, false
-			} else {
+				if entry.IsExact() {
+					return entry.Score, false
+				} else { // Is Lower bound score
+					if entry.Score >= beta {
+						return entry.Score, false
+					} else {
+						anticipated = entry.Move
+					}
+				}
+			} else { // estimate isn't deep enough
 				anticipated = entry.Move
 			}
 		}
@@ -189,8 +197,8 @@ func (s *Search) _searchToDepth(pos *Position, depth uint8, alpha int16, beta in
 		iter.pMoves = SortMoves(pos, iter.pMoves, anticipated)
 	}
 
-	score = alpha
-	s.TT.PostResults(pos.hash, score, NULL_MOVE, depth)
+	score = -MATE_VAL - 1
+	var bestMove Move
 	for {
 		move, done := iter.Next()
 		if done {
@@ -206,16 +214,24 @@ func (s *Search) _searchToDepth(pos *Position, depth uint8, alpha int16, beta in
 			return 0, halted
 		}
 
-		if moveScore > alpha {
-			alpha = moveScore
+		if moveScore > score {
 			score = moveScore
-			s.TT.PostResults(pos.hash, score, move, depth)
+			bestMove = move
+			if moveScore > alpha {
+				alpha = moveScore
+			}
 		}
 
 		if ALPHA_BETA_PRUNING_ENABLED && moveScore >= beta {
 			s.TallyPrune(int(depth), len(iter.pMoves)-1-iter.idx)
-			return
+			break
 		}
+	}
+
+	if alpha < beta {
+		s.TT.PostResults(pos.hash, score, false, bestMove, depth)
+	} else {
+		s.TT.PostResults(pos.hash, score, true, bestMove, depth)
 	}
 
 	return
