@@ -88,8 +88,11 @@ func (s *Search) Start() {
 			break
 		}
 
-		var score int16
-		score, line = s.searchToDepth(s.Root, s.depth)
+		score, _line, halted := s.searchToDepth(s.Root, s.depth)
+		if halted {
+			break
+		}
+		line = _line
 		dt := time.Now().Sub(lastResultTime)
 		lastResultTime = time.Now()
 		var out = fmt.Sprintf("info depth %d score ", s.depth)
@@ -143,26 +146,29 @@ func (s *Search) Start() {
 
 }
 
-func (s *Search) searchToDepth(pos *Position, depth uint8) (score int16, line []Move) {
+func (s *Search) searchToDepth(pos *Position, depth uint8) (score int16, line []Move, halted bool) {
 	if !pos.HasLegalMoves() {
 		if pos.IsMate() {
-			return -MATE_VAL, make([]Move, 0)
+			return -MATE_VAL, make([]Move, 0), false
 		} else {
-			return DRAW_VAL, make([]Move, 0)
+			return DRAW_VAL, make([]Move, 0), false
 		}
 	}
-	score, line = s._searchToDepth(pos, depth, -MATE_VAL, MATE_VAL)
-	ReverseSlice(line)
-	return score, line
+	score, halted = s._searchToDepth(pos, depth, -MATE_VAL, MATE_VAL)
+	line = s.TT.Line(pos, depth)
+	return
 }
 
-func (s *Search) _searchToDepth(pos *Position, depth uint8, alpha int16, beta int16) (score int16, line []Move) {
+func (s *Search) _searchToDepth(pos *Position, depth uint8, alpha int16, beta int16) (score int16, halted bool) {
+	if s.isHalted {
+		return alpha, true
+	}
 	if depth == 0 || pos.result != RESULT_IN_PROGRESS {
 		if pos.IsMate() {
-			return -MATE_VAL, nil
+			return -MATE_VAL, false
 		}
 		s.IncrNode()
-		return EvalPos(pos), nil
+		return EvalPos(pos), false
 	}
 
 	var anticipated = NULL_MOVE
@@ -171,7 +177,7 @@ func (s *Search) _searchToDepth(pos *Position, depth uint8, alpha int16, beta in
 		if exists {
 			s.hashHitsOnDepth++
 			if entry.Depth >= depth {
-				return entry.Score, s.TT.Line(pos, depth)
+				return entry.Score, false
 			} else {
 				anticipated = entry.Move
 			}
@@ -184,6 +190,7 @@ func (s *Search) _searchToDepth(pos *Position, depth uint8, alpha int16, beta in
 	}
 
 	score = alpha
+	s.TT.PostResults(pos.hash, score, NULL_MOVE, depth)
 	for {
 		move, done := iter.Next()
 		if done {
@@ -191,22 +198,18 @@ func (s *Search) _searchToDepth(pos *Position, depth uint8, alpha int16, beta in
 		}
 
 		captPiece, lastFrozenPos := pos.MakeMove(move)
-		moveScore, moveLine := s._searchToDepth(pos, depth-1, -beta, -alpha)
+		var moveScore int16
+		moveScore, halted = s._searchToDepth(pos, depth-1, -beta, -alpha)
 		moveScore = -moveScore
 		pos.UnmakeMove(move, lastFrozenPos, captPiece)
+		if halted {
+			return 0, halted
+		}
 
 		if moveScore > alpha {
 			alpha = moveScore
 			score = moveScore
-			if moveLine == nil {
-				line = []Move{move}
-			} else {
-				line = append(moveLine, move)
-			}
-
-			if TRANSP_TABLE_LOOKUPS_ENABLED {
-				s.TT.PostResults(pos.hash, score, move, depth)
-			}
+			s.TT.PostResults(pos.hash, score, move, depth)
 		}
 
 		if ALPHA_BETA_PRUNING_ENABLED && moveScore >= beta {
