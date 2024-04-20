@@ -67,7 +67,7 @@ func (s *Search) ToNextDepth() {
 }
 
 func (s *Search) TallyPrune(parDepth, cnt int) {
-	idx := len(s.pruneCntsOnDepth) - int(parDepth)
+	idx := len(s.pruneCntsOnDepth) - parDepth
 	s.pruneCntsOnDepth[idx] += cnt
 }
 

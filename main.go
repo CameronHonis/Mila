@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"runtime/pprof"
+	"sync"
 )
 
 const DEBUG = false
@@ -19,7 +20,10 @@ func main() {
 	}
 	fmt.Println("Mila v0.0.0 - a lightweight chess AI written in go by Cameron Honis")
 	tt := NewTranspTable()
+	wg := sync.WaitGroup{}
+	wg.Add(1)
 	go NewUci(tt).Start()
+	wg.Wait()
 }
 
 func StartSearchTest(tt *TranspTable) {

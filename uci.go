@@ -53,6 +53,8 @@ func (uci *Uci) handleInput(s string) {
 			fmt.Println("starting search")
 			go NewSearch(uci.pos, constraints, uci.tt).Start()
 		}
+	} else if cmd == "isready" {
+		fmt.Println("readyok")
 	} else {
 		fmt.Println("unknown command:", cmd)
 	}
