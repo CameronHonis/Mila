@@ -106,12 +106,16 @@ func EvalMove(pos *Position, move Move) int16 {
 	var moveVal int16
 	moveVal += PieceTypeToVal(move.PromotedTo())
 
-	captPiece, lastFrozenPos := pos.MakeMove(move)
-	defer pos.UnmakeMove(move, lastFrozenPos, captPiece)
-	if pos.IsKingChecked() {
-		moveVal += CHECK_VALUE
-	}
+	//captPiece, lastFrozenPos := pos.MakeMove(move)
+	//defer pos.UnmakeMove(move, lastFrozenPos, captPiece)
+	//if pos.IsKingChecked() {
+	//	moveVal += CHECK_VALUE
+	//}
 
+	captPiece := pos.pieces[move.EndSq()]
+	if move.Type() == CAPTURES_EN_PASSANT {
+		captPiece = NewPiece(PAWN, NewColor(!pos.isWhiteTurn))
+	}
 	moveVal += PieceTypeToVal(captPiece.Type())
 	return moveVal
 }

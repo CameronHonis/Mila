@@ -19,7 +19,7 @@ var kingAttacks [N_SQUARES]Bitboard
 
 var isInitted = false
 
-func initAttacks() {
+func initAttackPrecomputes() {
 	if isInitted {
 		return
 	}

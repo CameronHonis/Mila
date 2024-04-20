@@ -186,7 +186,7 @@ func GenPseudoLegalKingMoves(pos *Position, sq Square) []Move {
 }
 
 func SlidingAttacksBB(occupied Bitboard, sq Square, pt PieceType) Bitboard {
-	initAttacks()
+	initAttackPrecomputes()
 	var rtn Bitboard
 	rank := sq.Rank()
 	if pt == ROOK || pt == QUEEN {
@@ -214,16 +214,16 @@ func SlidingAttacksBB(occupied Bitboard, sq Square, pt PieceType) Bitboard {
 }
 
 func KnightAttacksBB(sq Square) Bitboard {
-	initAttacks()
+	initAttackPrecomputes()
 	return knightAttacks[sq]
 }
 
 func KingAttacksBB(sq Square) Bitboard {
-	initAttacks()
+	initAttackPrecomputes()
 	return kingAttacks[sq]
 }
 
 func PawnAttacksBB(sq Square, color Color) Bitboard {
-	initAttacks()
+	initAttackPrecomputes()
 	return pawnAttacks[sq][color]
 }

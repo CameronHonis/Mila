@@ -1,27 +1,27 @@
 package main
 
 import (
-	"github.com/CameronHonis/chess"
+	"log"
 	"sync"
 )
 
 type TranspTable struct {
-	entryByHash map[uint64]*TTEntry
+	entryByHash map[ZHash]TTEntry
 	mu          sync.Mutex
 }
 
 func NewTranspTable() *TranspTable {
 	return &TranspTable{
-		entryByHash: make(map[uint64]*TTEntry),
+		entryByHash: make(map[ZHash]TTEntry),
 	}
 }
 
-func (tt *TranspTable) PostResults(hash uint64, score float64, move *chess.Move, depth int) {
+func (tt *TranspTable) PostResults(hash ZHash, score int16, move Move, depth uint8) {
 	tt.mu.Lock()
 	defer tt.mu.Unlock()
-	prevEntry := tt.entryByHash[hash]
-	if prevEntry == nil || depth > prevEntry.Depth {
-		tt.entryByHash[hash] = &TTEntry{
+	prevEntry, ok := tt.entryByHash[hash]
+	if !ok || depth > prevEntry.Depth {
+		tt.entryByHash[hash] = TTEntry{
 			Score: score,
 			Depth: depth,
 			Move:  move,
@@ -29,7 +29,7 @@ func (tt *TranspTable) PostResults(hash uint64, score float64, move *chess.Move,
 	}
 }
 
-func (tt *TranspTable) GetEntry(hash uint64) (entry *TTEntry, exists bool) {
+func (tt *TranspTable) GetEntry(hash ZHash) (entry TTEntry, exists bool) {
 	tt.mu.Lock()
 	defer tt.mu.Unlock()
 	var ok bool
@@ -39,18 +39,29 @@ func (tt *TranspTable) GetEntry(hash uint64) (entry *TTEntry, exists bool) {
 	return
 }
 
-type TTEntry struct {
-	Score float64
-	Depth int
-	Move  *chess.Move
-	// bestMove *chess.Move
-	mu sync.Mutex
+func (tt *TranspTable) Line(pos *Position, depth uint8) []Move {
+	entry, entryExists := tt.GetEntry(pos.hash)
+	if DEBUG {
+		if !entryExists {
+			log.Fatalf("could not get entry for line after %s at depth %d", pos.FEN(), depth)
+		}
+		if entry.Depth < depth {
+			log.Fatalf("entry depth (%d) lower than requested depth (%d) while building line", entry.Depth, depth)
+		}
+	}
+	if depth == 1 {
+		return []Move{entry.Move}
+	} else {
+		captPiece, lastFrozenPos := pos.MakeMove(entry.Move)
+		defer pos.UnmakeMove(entry.Move, lastFrozenPos, captPiece)
+
+		moves := tt.Line(pos, depth-1)
+		return append(moves, entry.Move)
+	}
 }
 
-func (e *TTEntry) Update(score float64, depth int, move *chess.Move) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	e.Score = score
-	e.Depth = depth
-	e.Move = move
+type TTEntry struct {
+	Score int16
+	Depth uint8
+	Move  Move
 }

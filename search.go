@@ -165,12 +165,25 @@ func (s *Search) _searchToDepth(pos *Position, depth uint8, alpha int16, beta in
 		return EvalPos(pos), nil
 	}
 
-	iter := NewLegalMoveIter(pos)
-	if MOVE_SORT_ENABLED {
-		iter.pMoves = SortMoves(pos, iter.pMoves, NULL_MOVE)
+	var anticipated = NULL_MOVE
+	if TRANSP_TABLE_LOOKUPS_ENABLED {
+		entry, exists := s.TT.GetEntry(pos.hash)
+		if exists {
+			s.hashHitsOnDepth++
+			if entry.Depth >= depth {
+				return entry.Score, s.TT.Line(pos, depth)
+			} else {
+				anticipated = entry.Move
+			}
+		}
 	}
 
-	score = -MATE_VAL
+	iter := NewLegalMoveIter(pos)
+	if MOVE_SORT_ENABLED {
+		iter.pMoves = SortMoves(pos, iter.pMoves, anticipated)
+	}
+
+	score = alpha
 	for {
 		move, done := iter.Next()
 		if done {
@@ -178,9 +191,10 @@ func (s *Search) _searchToDepth(pos *Position, depth uint8, alpha int16, beta in
 		}
 
 		captPiece, lastFrozenPos := pos.MakeMove(move)
-
 		moveScore, moveLine := s._searchToDepth(pos, depth-1, -beta, -alpha)
 		moveScore = -moveScore
+		pos.UnmakeMove(move, lastFrozenPos, captPiece)
+
 		if moveScore > alpha {
 			alpha = moveScore
 			score = moveScore
@@ -189,15 +203,18 @@ func (s *Search) _searchToDepth(pos *Position, depth uint8, alpha int16, beta in
 			} else {
 				line = append(moveLine, move)
 			}
-		}
 
-		pos.UnmakeMove(move, lastFrozenPos, captPiece)
+			if TRANSP_TABLE_LOOKUPS_ENABLED {
+				s.TT.PostResults(pos.hash, score, move, depth)
+			}
+		}
 
 		if ALPHA_BETA_PRUNING_ENABLED && moveScore >= beta {
 			s.TallyPrune(int(depth), len(iter.pMoves)-1-iter.idx)
 			return
 		}
 	}
+
 	return
 }
 
