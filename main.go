@@ -18,7 +18,7 @@ func main() {
 		_ = pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
 	}
-	fmt.Println("Mila v0.0.0 - a lightweight chess AI written in go by Cameron Honis")
+	fmt.Println("Mila v0.4.2 - a lightweight chess AI written in go by Cameron Honis")
 	tt := NewTranspTable()
 	wg := sync.WaitGroup{}
 	wg.Add(1)
